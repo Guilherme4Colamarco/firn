@@ -225,8 +225,9 @@ const LIGHTS_GONE_X = -60;
 const TOP_BAR_LINGER_MS = 250;
 // The mouse rests at the top edge this long before the bar comes down, so
 // flicking up to a site's own search box or menu doesn't bring it (and move
-// the page out from under the mouse).
-const TOP_BAR_DWELL_MS = 250;
+// the page out from under the mouse). Short enough to feel responsive
+// (250ms felt sluggish), long enough that a quick flick past never counts.
+const TOP_BAR_DWELL_MS = 150;
 
 // The window's name (the Dock's menu, the Window menu, the taskbar): the
 // page's title, cut short like the sidebar's tabs (some sites put a whole

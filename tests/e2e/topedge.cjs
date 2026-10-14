@@ -97,14 +97,19 @@ const check = (n, ok, x = '') => {
 
   // A flick to the screen's very top and straight back down.
   mouse('move', screenX, 0);
-  await wait(100);
+  await wait(60);
   mouse('move', screenX, screenY(20));
   await wait(600);
   check('a flick past the top edge: no top bar', !(await info()).bar);
 
   // Resting against the top edge brings it.
   mouse('move', screenX, 0);
-  await wait(700);
+  await wait(230);
+  check(
+    'resting at the very top: the bar comes after a short rest, not a long one',
+    (await info()).bar,
+  );
+  await wait(470);
   const shown = await info();
   check(
     'resting at the very top: the bar comes down, the page below it',
