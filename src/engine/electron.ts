@@ -45,6 +45,54 @@ const SAFE_WEB_PREFERENCES = {
   preload: path.join(__dirname, 'page-preload.cjs'),
 };
 
+// Pages may open tabs, Lookout, and popup windows only right after a
+// real press or key in them (security F2): Electron has no popup blocker
+// of its own. Like Chrome, a press counts for 5 seconds (time for a
+// sign-in button to ask its server first) and opens one thing only, so
+// one click can't flood the sidebar. Taps and touch count too, and so do
+// presses inside the page's frames. A popup window gets the same rule,
+// and whatever it opens follows `open` too. `open` returns whether a real
+// popup window may open.
+const PRESS_LASTS_MS = 5000;
+const PRESSES = new Set([
+  'mouseDown',
+  'mouseUp',
+  'rawKeyDown',
+  'keyDown',
+  'touchEnd',
+  'gestureTap',
+]);
+function guardWindowOpens(
+  web: Electron.WebContents,
+  open: (
+    url: string,
+    disposition: string,
+    features: string,
+    referrer: Referrer,
+  ) => boolean,
+) {
+  let pressedAt = -Infinity;
+  web.on('input-event', (_event, input) => {
+    if (PRESSES.has(input.type)) pressedAt = performance.now();
+  });
+  web.setWindowOpenHandler(({ url, disposition, features, referrer }) => {
+    if (performance.now() - pressedAt > PRESS_LASTS_MS)
+      return { action: 'deny' };
+    pressedAt = -Infinity;
+    if (!open(url, disposition, features, referrer)) return { action: 'deny' };
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        autoHideMenuBar: true,
+        webPreferences: SAFE_WEB_PREFERENCES,
+      },
+    };
+  });
+  web.on('did-create-window', (popup) =>
+    guardWindowOpens(popup.webContents, open),
+  );
+}
+
 // Saved passwords are only saved and filled on secure sites (and on this
 // computer, for testing).
 function loginOrigin(url: string) {
@@ -782,26 +830,19 @@ class ElectronPage implements Page {
     // (which Chromium treats as "open in a new window") open in Lookout.
     // Real popup windows (sign-in flows and the like, which a page opens
     // with a size or other window features) stay popups so they keep
-    // working.
-    web.setWindowOpenHandler(({ url, disposition, features, referrer }) => {
+    // working. All of it only right after a real press or key in the page
+    // (security F2, see guardWindowOpens).
+    guardWindowOpens(web, (url, disposition, features, referrer) => {
       const isWeb = /^https?:/i.test(url);
       if (disposition === 'new-window' && !features && isWeb) {
         events().onLookout(url, referrer);
-        return { action: 'deny' };
+        return false;
       }
-      if (disposition === 'new-window') {
-        return {
-          action: 'allow',
-          overrideBrowserWindowOptions: {
-            autoHideMenuBar: true,
-            webPreferences: SAFE_WEB_PREFERENCES,
-          },
-        };
-      }
+      if (disposition === 'new-window') return true;
       // (With where it was followed from, as a link opened in Chrome.)
       if (isWeb)
         events().onOpenTab(url, disposition === 'background-tab', referrer);
-      return { action: 'deny' };
+      return false;
     });
 
     // A press inside the page (the person starting to work in it).

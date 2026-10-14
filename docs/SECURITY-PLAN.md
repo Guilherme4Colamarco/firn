@@ -21,7 +21,7 @@ Last audit: 14 Oct 2026 (the first one, against Electron 44.7.0). Findings are n
 | Fuse: OnlyLoadAppFromAsar on | in place | forge.config.mts |
 | Fuse: GrantFileProtocolExtraPrivileges off | in place (was F1, fixed 14 Oct 2026) | forge.config.mts; Firn's UI loads from `firn://app` in its own session (`serveUi`, src/main.ts), so web pages can't reach it; the `fileaccess` check |
 | `will-navigate` restricted (Firn's own UI never navigates away) | in place | `lockUi` (src/main.ts) |
-| `setWindowOpenHandler` restricted (no new windows; only http/https become tabs) | partly (F2, F3) | UI: denied. Pages: only http/https become tabs, but sized popups open as real windows with no address shown, and nothing requires a click first |
+| `setWindowOpenHandler` restricted (no new windows; only http/https become tabs) | partly (F3; F2 fixed 14 Oct 2026) | UI: denied. Pages: only http/https become tabs, and only right after a real press or key (`guardWindowOpens`, src/engine/electron.ts; the `popups` check), but sized popups open as real windows with no address shown |
 | Permission request and check handlers deny by default | in place | src/engine/electron.ts; unknown kinds and Lookout/popups refused. Gaps: client certificates (F4), device pickers (F5), answers keyed on the frame's site (F7) |
 | Every IPC handler checks its sender (right window or frame) and the message's shape | in place | UI: `uiContents.includes(event.sender)` + type checks (src/main.ts); page helper: top frame of a Firn page, site from the frame's real address |
 | Content Security Policy on Firn's own UI pages | missing (F10, low) | index.html has none |
@@ -35,7 +35,7 @@ Each one: what could go wrong, and whether Firn handles it.
 - **Address bar spoofing:** the address shown always matches the page actually loaded, including during slow loads, failed loads, redirects, and `javascript:`/`data:` addresses.
   *Status: in place for tabs, Lookout, and split view* (the address comes from the page's committed address, `getURL()`, refreshed on `did-navigate`; typed `javascript:` becomes a search). Popup windows show no address at all (F3). A hand test of a hanging cross-site navigation would confirm.
 - **Popups and `window.open` abuse:** a page can't flood tabs, open windows, or open one without a click.
-  *Status: missing (F2).* Electron has no popup blocker; no click is required.
+  *Status: in place* (F2 fixed): Electron has no popup blocker, so Firn's own (`guardWindowOpens`, src/engine/electron.ts): tabs, Lookout, and popups open only within 5 seconds of a real press or key in that page, one per press, as Chrome does; popups follow the same rule.
 - **Downloads:** dangerous file types, filename tricks (right-to-left characters, double extensions, very long names, path parts), and where files land.
   *Status: partly (F9).* Names are cleaned of Windows' forbidden characters and land in Downloads; right-to-left characters are kept, and a page can start many downloads with no click. Mark of the Web on Windows: in place (David checked, 14 Oct 2026: a downloaded .exe's Properties says it came from another computer).
 - **Permission prompts:** camera, microphone, location, notifications, and clipboard. The prompt names the real site, and one site's answer never applies to another.
@@ -88,7 +88,7 @@ High:
 - **F1** fixed (14 Oct 2026): local web pages could read other local files. The fuse is off, and Firn's UI loads from `firn://app` in its own session.
 
 Medium:
-- **F2** Pages can open tabs and popups without a click (`setWindowOpenHandler`, src/engine/electron.ts). Fix: only within a moment of a real press or key in that page.
+- **F2** fixed (14 Oct 2026): pages could open tabs and popups without a click. Now only within 5 seconds of a real press or key in that page, one per press.
 - **F3** Popup windows show no address (same place). Fix: the window title always starts with the site's host, and the page can't change that part.
 - **F4** Client certificates go to any site that asks (no `select-client-certificate` handler; Electron picks the first). Fix: send none.
 - **F5** Device pickers (Bluetooth, USB, serial, HID) have no handlers; Electron's default may pick a Bluetooth device without asking. Fix: refuse them all.
