@@ -37,7 +37,7 @@ Each one: what could go wrong, and whether Firn handles it.
 - **Popups and `window.open` abuse:** a page can't flood tabs, open windows, or open one without a click.
   *Status: missing (F2).* Electron has no popup blocker; no click is required.
 - **Downloads:** dangerous file types, filename tricks (right-to-left characters, double extensions, very long names, path parts), and where files land.
-  *Status: partly (F9).* Names are cleaned of Windows' forbidden characters and land in Downloads; right-to-left characters are kept, and a page can start many downloads with no click. Mark of the Web on Windows: check by hand (a downloaded .exe's Properties should say it came from another computer).
+  *Status: partly (F9).* Names are cleaned of Windows' forbidden characters and land in Downloads; right-to-left characters are kept, and a page can start many downloads with no click. Mark of the Web on Windows: in place (David checked, 14 Oct 2026: a downloaded .exe's Properties says it came from another computer).
 - **Permission prompts:** camera, microphone, location, notifications, and clipboard. The prompt names the real site, and one site's answer never applies to another.
   *Status: partly (F7, F8).* Only tabs ask; answers are per site. But the site is the asking frame's, not the tab's, and "open in another app" can be allowed for any kind of link.
 - **Links from other apps:** the command line (Windows) and `open-url`/`open-file` (Mac). Only http, https, and existing local web files get through, and nothing can pass as a Chromium setting.
@@ -72,7 +72,7 @@ Each one: what could go wrong, and whether Firn handles it.
   - Each workflow has the least permissions it needs. *Mostly:* `contents: read` by default; the Mac build gets `id-token: write` it doesn't need.
   - Signing secrets sit behind the `windows-signing` environment. *Partly (F6, medium):* every push to any branch runs in that environment, and the Mac secrets are repository-wide. Whether the environment limits branches is a GitHub setting to check.
 - **Releases stay signed:** Windows signing (Azure Artifact Signing) and Mac signing and notarization are required. A release without them must fail, never fall back. *In place:* a release fails without the secrets, and the build verifies both signatures and notarization.
-- **The Safe Browsing key** ships inside every copy of Firn, so assume anyone can read it. It must be restricted in Google's console to the Safe Browsing API only. *Can't be checked from the code:* David to confirm in Google Cloud (APIs & Services > Credentials > the key > API restrictions).
+- **The Safe Browsing key** ships inside every copy of Firn, so assume anyone can read it. It must be restricted in Google's console to the Safe Browsing API only. *In place* (David checked, 14 Oct 2026): restricted to the Safe Browsing API. No application restriction, rightly: Google's choices (websites, IP addresses, Android, iOS) don't fit a desktop app.
 
 ## 4. Review routine
 
