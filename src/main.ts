@@ -1705,6 +1705,7 @@ const createWindow = () => {
     settings,
     downloadsFolder: downloadsFolder(),
     version: app.getVersion(),
+    chromium: process.versions.chrome.split('.')[0],
     updates: updateState(),
     safeBrowsingAvailable: safeBrowsing.available,
     defaultBrowser,

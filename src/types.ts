@@ -159,6 +159,9 @@ export interface SettingsState {
   settings: Settings;
   downloadsFolder: string;
   version: string;
+  // The version of Chromium (the web engine) this Firn is built on, as
+  // its main number ("152"), the way Chrome names it.
+  chromium: string;
   // Keeping Firn up to date (see src/updates.ts).
   updates: UpdateState;
   // Whether this copy of Firn can warn about dangerous sites (it needs a

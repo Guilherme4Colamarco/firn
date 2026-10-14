@@ -56,10 +56,14 @@ const row = (fl) =>
   const version = require('../../package.json').version;
 
   let { app, fl } = await launch({ FIRN_UPDATES_TEST: '1' });
+  const chromium = (await app.evaluate(() => process.versions.chrome)).split(
+    '.',
+  )[0];
   let r = await row(fl);
   check(
     'Settings > Updates: the version, and "Check for updates"',
-    r?.name === `Firn ${version}` && r?.button === 'Check for updates',
+    r?.name === `Firn ${version} · Chromium ${chromium}` &&
+      r?.button === 'Check for updates',
     JSON.stringify(r),
   );
   await fl.click('[data-testid="updates"] button');
