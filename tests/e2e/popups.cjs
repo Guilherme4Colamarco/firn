@@ -1,6 +1,7 @@
 // Pages open tabs and popup windows only right after a real press or key
 // in them (security F2): a script on its own opens nothing, one click
-// opens one thing, and a press long ago no longer counts.
+// opens one thing, and a press long ago no longer counts. A popup's
+// title always starts with its real site (security F3).
 const { _electron } = require('./playwright.cjs');
 const http = require('http');
 const path = require('path');
@@ -24,6 +25,10 @@ const server = http
           '<button id="flood" onclick="for (let i = 0; i < 5; i++) window.open(\'/flood\' + i)">flood</button><br>' +
           "<button id=\"popup\" onclick=\"window.open('/popup', 'p', 'width=400,height=300')\">popup</button>" +
           '<script>setTimeout(() => window.open("/sneaky"), 300)</script></body>',
+      );
+    if (req.url === '/popup')
+      return res.end(
+        '<title>Sign in</title><script>setTimeout(() => (document.title = "accounts.google.com"), 300)</script>popup',
       );
     res.end(`<title>${req.url}</title>${req.url}`);
   })
@@ -77,6 +82,29 @@ const server = http
     'a sign-in style popup window opens when clicked',
     u.some((x) => x.endsWith('/popup')),
     u.join(', '),
+  );
+
+  // Security F3: a popup has no address bar, so its title starts with
+  // the site actually loaded, whatever the page calls itself.
+  const popupTitle = () =>
+    app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()
+        .filter((w) => w.webContents.getURL().endsWith('/popup'))
+        .map((w) => w.getTitle())
+        .join(''),
+    );
+  let t = await popupTitle();
+  check(
+    "a popup's title starts with its real site",
+    t.startsWith('127.0.0.1:8771 — '),
+    t,
+  );
+  await wait(800);
+  t = await popupTitle();
+  check(
+    "a page renaming itself can't change the site part",
+    t === '127.0.0.1:8771 — accounts.google.com',
+    t,
   );
 
   // A press, then a script opening a tab well after it: nothing.

@@ -88,9 +88,51 @@ function guardWindowOpens(
       },
     };
   });
-  web.on('did-create-window', (popup) =>
-    guardWindowOpens(popup.webContents, open),
-  );
+  web.on('did-create-window', (popup) => {
+    showPopupSite(popup);
+    guardWindowOpens(popup.webContents, open);
+  });
+}
+
+// A popup window has no address bar, so its title shows the site
+// (security F3): it always starts with the host of the address actually
+// loaded (`getURL()`, the committed one, never the one asked for), and the
+// page's own title only comes after it, so a page can't pose as another
+// site. Hosts come out in punycode (xn--…), as lookalike letters would
+// otherwise hide a different site.
+function popupSite(url: string) {
+  try {
+    const u = new URL(url);
+    if (u.protocol === 'http:' || u.protocol === 'https:') return u.host;
+    if (u.protocol === 'about:') return 'about:blank';
+    return u.protocol.replace(/:$/, '');
+  } catch {
+    return '';
+  }
+}
+function showPopupSite(popup: Electron.BrowserWindow) {
+  const web = popup.webContents;
+  let pageTitle = '';
+  const update = () => {
+    if (popup.isDestroyed()) return;
+    const site = popupSite(web.getURL());
+    const title = pageTitle.trim();
+    popup.setTitle(
+      site && title && title !== site ? `${site} — ${title}` : site || title,
+    );
+  };
+  popup.on('page-title-updated', (event, title) => {
+    event.preventDefault();
+    pageTitle = title;
+    update();
+  });
+  // A new page starts with no title of its own until it gives one.
+  web.on('did-navigate', () => {
+    pageTitle = '';
+    update();
+  });
+  web.on('did-navigate-in-page', update);
+  update();
 }
 
 // Saved passwords are only saved and filled on secure sites (and on this

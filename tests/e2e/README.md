@@ -77,7 +77,7 @@ Screenshots and logs land in `tests/e2e/out/` (not saved in Git).
 | `suggest` | Search suggestions: asked once before anything is sent; on, the engine's suggestions (a test server) show, sent without cookies, never for an address; off, nothing sent |
 | `referrer` | A link opening a new tab (or Lookout) tells the site where it came from, as Chrome does: an image server that sends visitors without one back to the post (as Reddit's does) opens the picture |
 | `peekleave` | The peeking sidebar tucks away once a real mouse leaves the window (below it, or off to its left onto the desktop); a small slip past the left edge keeps it out |
-| `popups` | Tabs and popups open only right after a real press or key: a script on its own opens nothing, one click opens one tab, a press more than 5 seconds ago no longer counts; links, Enter on a link, and sign-in popups still work |
+| `popups` | Tabs and popups open only right after a real press or key: a script on its own opens nothing, one click opens one tab, a press more than 5 seconds ago no longer counts; links, Enter on a link, and sign-in popups still work; a popup's title starts with its real site, whatever the page calls itself |
 
 `site/` is a tiny test website the checks visit (served on this computer
 only). `cdp.cjs`, `playwright.cjs` and `warp.py` are small helpers.
