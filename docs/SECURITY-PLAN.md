@@ -19,7 +19,7 @@ Last audit: 14 Oct 2026 (the first one, against Electron 44.7.0). Findings are n
 | Fuse: cookie encryption on | in place | forge.config.mts |
 | Fuse: ASAR integrity on | in place | forge.config.mts |
 | Fuse: OnlyLoadAppFromAsar on | in place | forge.config.mts |
-| Fuse: GrantFileProtocolExtraPrivileges off | **missing (F1, high)** | not set, so on: a local web page can read other local files. Firn's UI loads from `file://` and needs it until the UI moves to its own protocol |
+| Fuse: GrantFileProtocolExtraPrivileges off | in place (was F1, fixed 14 Oct 2026) | forge.config.mts; Firn's UI loads from `firn://app` in its own session (`serveUi`, src/main.ts), so web pages can't reach it; the `fileaccess` check |
 | `will-navigate` restricted (Firn's own UI never navigates away) | in place | `lockUi` (src/main.ts) |
 | `setWindowOpenHandler` restricted (no new windows; only http/https become tabs) | partly (F2, F3) | UI: denied. Pages: only http/https become tabs, but sized popups open as real windows with no address shown, and nothing requires a click first |
 | Permission request and check handlers deny by default | in place | src/engine/electron.ts; unknown kinds and Lookout/popups refused. Gaps: client certificates (F4), device pickers (F5), answers keyed on the frame's site (F7) |
@@ -49,7 +49,7 @@ Each one: what could go wrong, and whether Firn handles it.
 - **Safe Browsing and ad blocking:** a fault in either fails safely and never leaks visited addresses.
   *Status: in place.* Both fail open by design (a page loads if the check breaks); their logs carry no addresses. One debug printout does (F11).
 - **`file:` and other local addresses:** what a local page can reach.
-  *Status: missing (F1, high).*
+  *Status: in place* (F1 fixed): Chrome's limits, no reading other local files; Firn's UI files (`firn://app`) are out of pages' reach.
 - **The PDF viewer.**
   *Status: in place.* Chromium's own viewer (`plugins: true` only turns that on), in the same sandbox.
 
@@ -85,7 +85,7 @@ Each one: what could go wrong, and whether Firn handles it.
 ## 5. Open findings (audit of 14 Oct 2026)
 
 High:
-- **F1** Local web pages can read other local files: the `GrantFileProtocolExtraPrivileges` fuse is on (forge.config.mts). Fix: serve Firn's UI from its own protocol instead of `file://`, then switch the fuse off; a check that a `file://` page can't fetch another file.
+- **F1** fixed (14 Oct 2026): local web pages could read other local files. The fuse is off, and Firn's UI loads from `firn://app` in its own session.
 
 Medium:
 - **F2** Pages can open tabs and popups without a click (`setWindowOpenHandler`, src/engine/electron.ts). Fix: only within a moment of a real press or key in that page.

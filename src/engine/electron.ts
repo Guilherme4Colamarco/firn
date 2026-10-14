@@ -6,6 +6,7 @@ import path from 'node:path';
 import {
   BrowserWindow,
   ipcMain,
+  session as sessions,
   WebContentsView,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
@@ -192,9 +193,10 @@ export class ElectronEngine implements PageEngine {
     return this.win.isDestroyed();
   }
 
-  // Downloads come from the browsing session that every page shares.
+  // Downloads come from the browsing session that every page shares (the
+  // default one; Firn's own UI has its own, see serveUi in src/main.ts).
   onDownload(listener: (download: EngineDownload) => void) {
-    const session = this.win.webContents.session;
+    const session = sessions.defaultSession;
     const handler = (_event: Electron.Event, item: Electron.DownloadItem) =>
       listener(wrapDownload(item));
     session.on('will-download', handler);
@@ -211,7 +213,7 @@ export class ElectronEngine implements PageEngine {
       detail: string,
     ) => boolean,
   ) {
-    const session = this.win.webContents.session;
+    const session = sessions.defaultSession;
     session.setPermissionRequestHandler(
       (web, permission, callback, details) => {
         if (HARMLESS_PERMISSIONS.has(permission)) return callback(true);
@@ -311,7 +313,7 @@ export class ElectronEngine implements PageEngine {
     check: (url: string) => Promise<string | null> | string | null,
     onBlocked: (page: Page | null, url: string, threat: string) => void,
   ) {
-    const session = this.win.webContents.session;
+    const session = sessions.defaultSession;
     session.webRequest.onBeforeRequest(
       { urls: ['http://*/*', 'https://*/*'] },
       (details, callback) => {
@@ -376,7 +378,7 @@ export class ElectronEngine implements PageEngine {
   }
 
   download(url: string) {
-    if (!this.win.isDestroyed()) this.win.webContents.session.downloadURL(url);
+    if (!this.win.isDestroyed()) sessions.defaultSession.downloadURL(url);
   }
 }
 

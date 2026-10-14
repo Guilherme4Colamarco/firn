@@ -7,6 +7,8 @@ import {
   Menu,
   nativeImage,
   nativeTheme,
+  net,
+  protocol,
   screen,
   safeStorage,
   session,
@@ -268,13 +270,54 @@ const DEFAULT_SPACE_ID = 'space-default';
 
 const NAV_COMMANDS: NavCommand[] = ['back', 'forward', 'reload', 'stop'];
 
+// Firn's UI lives at firn://app/… in its own private session (see serveUi),
+// so web pages, which all share the default session, can never reach its
+// files, and local web pages get no file access beyond Chrome's (the
+// GrantFileProtocolExtraPrivileges fuse is off, forge.config.mts).
+const UI_SCHEME = 'firn';
+const UI_PARTITION = 'firn-ui';
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: UI_SCHEME,
+    privileges: { standard: true, secure: true, supportFetchAPI: true },
+  },
+]);
+
 // Same safe settings as web pages, plus the narrow preload bridge.
 const UI_WEB_PREFERENCES = {
   preload: path.join(__dirname, 'preload.cjs'),
   contextIsolation: true,
   sandbox: true,
   nodeIntegration: false,
+  partition: UI_PARTITION,
 };
+
+// Serves the built UI's files at firn://app/…, and nothing outside its
+// folder. The UI needs no permissions (camera, notifications…): all refused.
+function serveUi() {
+  const ui = session.fromPartition(UI_PARTITION);
+  ui.setPermissionRequestHandler((_web, _permission, callback) =>
+    callback(false),
+  );
+  ui.setPermissionCheckHandler(() => false);
+  const root = path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}`);
+  ui.protocol.handle(UI_SCHEME, (request) => {
+    try {
+      const { host, pathname } = new URL(request.url);
+      const file = path.join(root, decodeURIComponent(pathname));
+      const inside = path.relative(root, file);
+      if (
+        host === 'app' &&
+        !inside.startsWith('..') &&
+        !path.isAbsolute(inside)
+      )
+        return net.fetch(pathToFileURL(file).toString());
+    } catch {
+      // A malformed address: not found.
+    }
+    return new Response(null, { status: 404 });
+  });
+}
 
 // Loads Firn's UI. `view` picks which part: the sidebar (default), the
 // floating layer (command bar, tab switcher), the top bar, or the sidebar
@@ -291,10 +334,10 @@ function loadUi(web: WebContents, view?: LayerView) {
       url.searchParams.set(key, value);
     web.loadURL(url.toString());
   } else {
-    web.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
-      Object.keys(query).length ? { query } : undefined,
-    );
+    const url = new URL(`${UI_SCHEME}://app/index.html`);
+    for (const [key, value] of Object.entries(query))
+      url.searchParams.set(key, value);
+    web.loadURL(url.toString());
   }
 }
 
@@ -3975,6 +4018,7 @@ app.on('open-file', (event, file) => {
 
 app.whenReady().then(() => {
   if (!isFirstInstance) return;
+  serveUi();
   createWindow();
   if (!DEMO) startUpdates(debug);
 
