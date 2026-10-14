@@ -4,6 +4,24 @@ A calm, minimal browser that's easy for everyone: vertical tabs, spaces, split v
 
 [firnbrowser.com](https://firnbrowser.com)
 
+## A look at Firn
+
+![Firn showing a website, with Basecamp's grid of everyday sites, a list of tabs, and a row of spaces in the sidebar on the left](docs/screenshots/vertical-tabs-spaces.webp)
+
+Tabs live in a sidebar on the left, with your everyday sites in **Basecamp** above them and your **spaces** along the bottom.
+
+![Split view: a map and a coffee shop's website side by side, shown as one row in the sidebar](docs/screenshots/split-view.webp)
+
+**Split view** puts two pages side by side. They show as one row in the sidebar.
+
+![Lookout: a product page floating over the page behind it, with a close button and an expand button beside it](docs/screenshots/lookout.webp)
+
+**Lookout** previews a link in a panel floating over the page.
+
+![Firn's welcome screen: "Welcome to Firn", a Let's begin button, and snowy hills under a soft sunrise](docs/screenshots/welcome.webp)
+
+The welcome, the first time you open Firn.
+
 ## Download
 
 - **Windows:** [Firn Setup.exe](https://github.com/dwurgy/firn/releases/latest/download/Firn.Setup.exe). Open it and Firn installs in a few seconds, just for you (no administrator rights needed), and adds itself to the Start menu. Firn is signed with its maker's name. While it's new, Windows may still say "Windows protected your PC" the first time: click **More info**, then **Run anyway**.

@@ -1,5 +1,16 @@
 # What's new in Firn
 
+## Firn 0.10.1
+
+**A quicker top bar, and Chromium's version in Settings.**
+
+The top bar now comes down a little sooner when you rest the mouse at the top of the window, and Settings shows which version of Chromium (the web engine) your Firn is built on.
+
+### Better
+
+- **The top bar** comes down after a shorter rest at the top edge. A quick flick past the edge, up to a site's own search box or menu, still doesn't bring it.
+- **Settings shows Chromium's version** next to Firn's, in Settings > Updates and at the bottom of Settings, like "Firn 0.10.1 · Chromium 152".
+
 ## Firn 0.10.0
 
 **A command bar that finishes your sentences.**

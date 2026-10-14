@@ -1801,11 +1801,17 @@ function SettingsPanel({ state }: { state: SettingsState | null }) {
                 </button>
               </div>
             </section>
-            <UpdatesGroup version={state.version} updates={state.updates} />
+            <UpdatesGroup
+              version={state.version}
+              chromium={state.chromium}
+              updates={state.updates}
+            />
           </div>
         )}
         <footer className="sheet-footer">
-          <span>Firn {state?.version}</span>
+          <span>
+            Firn {state?.version} · Chromium {state?.chromium}
+          </span>
           <span>Your history, passwords, and data stay on this computer.</span>
         </footer>
       </div>
@@ -1817,9 +1823,11 @@ function SettingsPanel({ state }: { state: SettingsState | null }) {
 // now, and, once a new version is ready, to restart into it.
 function UpdatesGroup({
   version,
+  chromium,
   updates,
 }: {
   version: string;
+  chromium: string;
   updates: UpdateState;
 }) {
   const at = (time?: number) =>
@@ -1845,7 +1853,9 @@ function UpdatesGroup({
       <h3>Updates</h3>
       <div className="settings-row">
         <div className="settings-label">
-          <span>Firn {version}</span>
+          <span>
+            Firn {version} · Chromium {chromium}
+          </span>
           <small data-testid="update-status">{status[updates.status]}</small>
         </div>
         {updates.status === 'ready' ? (
