@@ -1,5 +1,26 @@
 # What's new in Firn
 
+## Firn 0.10.2
+
+**A quieter, more careful Firn.**
+
+We looked through Firn closely for anything a website could misuse, and closed every gap we found. Most of it you'll never see; a few things now work the way Chrome does.
+
+### Better
+
+- **Pop-ups and new tabs** open only after you click or press a key on a page. A site can no longer open them on its own.
+- **Sign-in windows** always show the real site first in their title, like "accounts.google.com — Sign in", so a page can't pretend to be someone else.
+- **Downloads** need a click too: a page can start one download by itself, then one per click. File names are cleaned of characters that could hide what a file really is.
+- **Permission questions** (camera, location, and so on) name the site in the address bar, and your answer is remembered for that site, even when the question comes from something embedded in the page.
+- **Links that open other apps** are refused for a few kinds that attackers abuse on Windows. Zoom, Teams, and other apps still ask first, as before.
+
+### Fixed
+
+- **A web page saved on your computer** could read other files on your computer. It no longer can.
+- **Sites asking for a security certificate** were handed the first one on your computer. They now get none, and sites asking for a Bluetooth, USB, or similar device are always refused.
+- **Firn's own sidebar and menus** are locked down so nothing from a website can ever run inside them.
+- **A hidden troubleshooting shortcut** no longer prints the addresses of your open pages.
+
 ## Firn 0.10.1
 
 **A quicker top bar, and Chromium's version in Settings.**
@@ -291,7 +312,7 @@ Pages are calmer and faster, and fewer companies can follow you from site to sit
 
 ## Firn 0.1.2
 
-**Safer under the hood.**
+**A quieter, more careful Firn.**
 
 Firn now runs on the newest version of its Chrome engine, with the latest security fixes.
 

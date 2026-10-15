@@ -47,7 +47,7 @@ Each one: what could go wrong, and whether Firn handles it.
 - **The password fill path:** `src/page-preload.ts` and the main process's checks (top frame only, the real address, https or this computer, a real click first).
   *Status: in place.* Top frame and real address checked in the main process (`senderOrigin`); the click check is in the page helper (trusted events only). Popups get no fills.
 - **Safe Browsing and ad blocking:** a fault in either fails safely and never leaks visited addresses.
-  *Status: in place.* Both fail open by design (a page loads if the check breaks); their logs carry no addresses. One debug printout does (F11).
+  *Status: in place.* Both fail open by design (a page loads if the check breaks); their logs carry no addresses, and neither does the Ctrl+Shift+D debug printout (F11 fixed).
 - **`file:` and other local addresses:** what a local page can reach.
   *Status: in place* (F1 fixed): Chrome's limits, no reading other local files; Firn's UI files (`firn://app`) are out of pages' reach.
 - **The PDF viewer.**
@@ -99,7 +99,7 @@ Low:
 - **F8** fixed (15 Oct 2026): "open in another app" could be allowed for kinds of link abused on Windows (ms-msdt, search-ms, ms-officecmd, …). Now those, and the old scripting and help-file kinds Chrome also refuses, are refused without asking; other apps' links still ask.
 - **F9** fixed (15 Oct 2026): downloads kept right-to-left characters in names, and a page could start many downloads without a click. Now names are cleaned (`cleanName`, src/downloads.ts) and a page gets one download on its own, then one per press (`mayDownload`, src/engine/electron.ts).
 - **F10** fixed (15 Oct 2026): Firn's UI had no Content Security Policy. Now the built UI is sent with a strict one: only its own scripts, styles, and fonts, so nothing injected into the UI can run.
-- **F11** Ctrl+Shift+D diagnostics print page addresses (src/main.ts, `printDiagnostics`).
+- **F11** fixed (15 Oct 2026): the Ctrl+Shift+D diagnostics printed page addresses. Now a page shows only as its number (`printDiagnostics`, src/main.ts).
 - **F12** Actions pinned to major tags; downloads in the build not checksum-checked.
 - **F13** Saved passwords can be shown in Settings without the computer's password.
 - **F14** `react` and `react-dom` aren't pinned exactly.
