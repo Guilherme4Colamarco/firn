@@ -37,7 +37,7 @@ Each one: what could go wrong, and whether Firn handles it.
 - **Popups and `window.open` abuse:** a page can't flood tabs, open windows, or open one without a click.
   *Status: in place* (F2 fixed): Electron has no popup blocker, so Firn's own (`guardWindowOpens`, src/engine/electron.ts): tabs, Lookout, and popups open only within 5 seconds of a real press or key in that page, one per press, as Chrome does; popups follow the same rule.
 - **Downloads:** dangerous file types, filename tricks (right-to-left characters, double extensions, very long names, path parts), and where files land.
-  *Status: partly (F9).* Names are cleaned of Windows' forbidden characters and land in Downloads; right-to-left characters are kept, and a page can start many downloads with no click. Mark of the Web on Windows: in place (David checked, 14 Oct 2026: a downloaded .exe's Properties says it came from another computer).
+  *Status: in place* (F9 fixed): names are cleaned (Windows' forbidden characters, direction marks, runs of spaces, trailing dots and spaces, over-long names) and land in Downloads; a page starts one download on its own, then one per real press, as Chrome does. Mark of the Web on Windows: in place (David checked, 14 Oct 2026: a downloaded .exe's Properties says it came from another computer).
 - **Permission prompts:** camera, microphone, location, notifications, and clipboard. The prompt names the real site, and one site's answer never applies to another.
   *Status: in place (F7, F8).* Only tabs ask; answers are per site, the tab's (what the address bar shows), also when a frame from another site asks; notifications from another site's frame are refused. "Open in another app" is never offered for Windows tools abused from web pages (`REFUSED_SCHEMES` in src/engine/electron.ts).
 - **Links from other apps:** the command line (Windows) and `open-url`/`open-file` (Mac). Only http, https, and existing local web files get through, and nothing can pass as a Chromium setting.
@@ -97,7 +97,7 @@ Medium:
 Low:
 - **F7** fixed (15 Oct 2026): permission questions named, and answers were stored for, the asking frame's site, not the tab's. Now both use the tab's site (as Chrome does); notifications from another site's frame are refused.
 - **F8** fixed (15 Oct 2026): "open in another app" could be allowed for kinds of link abused on Windows (ms-msdt, search-ms, ms-officecmd, …). Now those, and the old scripting and help-file kinds Chrome also refuses, are refused without asking; other apps' links still ask.
-- **F9** Downloads keep right-to-left characters in names, and a page can start many downloads without a click (src/downloads.ts).
+- **F9** fixed (15 Oct 2026): downloads kept right-to-left characters in names, and a page could start many downloads without a click. Now names are cleaned (`cleanName`, src/downloads.ts) and a page gets one download on its own, then one per press (`mayDownload`, src/engine/electron.ts).
 - **F10** No Content Security Policy on Firn's UI (index.html).
 - **F11** Ctrl+Shift+D diagnostics print page addresses (src/main.ts, `printDiagnostics`).
 - **F12** Actions pinned to major tags; downloads in the build not checksum-checked.

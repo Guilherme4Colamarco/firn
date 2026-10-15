@@ -73,7 +73,9 @@ function guardWindowOpens(
 ) {
   let pressedAt = -Infinity;
   web.on('input-event', (_event, input) => {
-    if (PRESSES.has(input.type)) pressedAt = performance.now();
+    if (!PRESSES.has(input.type)) return;
+    pressedAt = performance.now();
+    downloadUsed.delete(web);
   });
   web.setWindowOpenHandler(({ url, disposition, features, referrer }) => {
     if (performance.now() - pressedAt > PRESS_LASTS_MS)
@@ -92,6 +94,25 @@ function guardWindowOpens(
     showPopupSite(popup);
     guardWindowOpens(popup.webContents, open);
   });
+}
+
+// A page may start one download on its own (security F9), as in Chrome:
+// the first one after it opens, after Firn loads an address into it, or
+// after each real press or key in it (see guardWindowOpens). Any more
+// before the next press are refused, so a page can't pour files into
+// Downloads. (Firn's own downloads, like trying one again, come from no
+// page and always go ahead.)
+const downloadUsed = new WeakSet<WebContents>();
+const downloadAllowed = new WeakMap<Electron.DownloadItem, boolean>();
+function mayDownload(item: Electron.DownloadItem, web?: WebContents) {
+  // Decided once per download, however many windows are listening.
+  let allowed = downloadAllowed.get(item);
+  if (allowed === undefined) {
+    allowed = !web || !downloadUsed.has(web);
+    if (web) downloadUsed.add(web);
+    downloadAllowed.set(item, allowed);
+  }
+  return allowed;
 }
 
 // A popup window has no address bar, so its title shows the site
@@ -333,8 +354,14 @@ export class ElectronEngine implements PageEngine {
   // default one; Firn's own UI has its own, see serveUi in src/main.ts).
   onDownload(listener: (download: EngineDownload) => void) {
     const session = sessions.defaultSession;
-    const handler = (_event: Electron.Event, item: Electron.DownloadItem) =>
+    const handler = (
+      event: Electron.Event,
+      item: Electron.DownloadItem,
+      web?: WebContents,
+    ) => {
+      if (!mayDownload(item, web)) return event.preventDefault();
       listener(wrapDownload(item));
+    };
     session.on('will-download', handler);
     this.win.on('closed', () =>
       session.removeListener('will-download', handler),
@@ -687,6 +714,7 @@ class ElectronPage implements Page {
   }
 
   load(url: string, referrer?: Referrer) {
+    downloadUsed.delete(this.web);
     this.web.loadURL(
       url,
       referrer?.url
@@ -977,7 +1005,10 @@ class ElectronPage implements Page {
         selectAll: () => web.selectAll(),
         copyImage: () => web.copyImageAt(params.x, params.y),
         // With no download handler yet, Chromium asks where to save it.
-        saveImage: () => web.downloadURL(params.srcURL),
+        saveImage: () => {
+          downloadUsed.delete(web);
+          web.downloadURL(params.srcURL);
+        },
         replaceMisspelling: (word) => web.replaceMisspelling(word),
       }),
     );
