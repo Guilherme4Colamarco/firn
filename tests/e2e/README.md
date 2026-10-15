@@ -82,6 +82,7 @@ Screenshots and logs land in `tests/e2e/out/` (not saved in Git).
 | `devices` | A site asking for a Bluetooth, USB, serial, or HID device gets none: every session and page has Firn's refusal, it refuses a made-up device on offer, and a real page asking after a click gets nothing |
 | `csp`          | Firn's UI has a Content Security Policy: the packaged build works under it, an injected script doesn't run |
 | `downloadguard` | A page starts one download on its own, then one per press (three at once save one, refused ones leave nothing in the list); direction marks and runs of spaces leave file names |
+| `diagnostics` | Ctrl+Shift+D prints what every layer is doing, but a page shows up only as a number, never its address (finding F11) |
 
 `site/` is a tiny test website the checks visit (served on this computer
 only). `cdp.cjs`, `playwright.cjs` and `warp.py` are small helpers.

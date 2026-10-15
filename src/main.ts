@@ -3700,10 +3700,10 @@ const createWindow = () => {
     if (handled) event.preventDefault();
   };
   // Ctrl+Shift+D: print what every layer is doing to the terminal, to help
-  // track down a stuck or unresponsive window.
+  // track down a stuck or unresponsive window. Pages show only their number,
+  // never their address: logs never say which sites someone visited.
   const printDiagnostics = () => {
-    const name = (web: WebContents) =>
-      uiNames.get(web) ?? `page ${web.getURL().slice(0, 60)}`;
+    const name = (web: WebContents) => uiNames.get(web) ?? `page #${web.id}`;
     const focused = win.webContents.isFocused()
       ? 'sidebar'
       : ([
