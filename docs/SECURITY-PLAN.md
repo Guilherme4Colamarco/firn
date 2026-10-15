@@ -22,7 +22,7 @@ Last audit: 14 Oct 2026 (the first one, against Electron 44.7.0). Findings are n
 | Fuse: GrantFileProtocolExtraPrivileges off | in place (was F1, fixed 14 Oct 2026) | forge.config.mts; Firn's UI loads from `firn://app` in its own session (`serveUi`, src/main.ts), so web pages can't reach it; the `fileaccess` check |
 | `will-navigate` restricted (Firn's own UI never navigates away) | in place | `lockUi` (src/main.ts) |
 | `setWindowOpenHandler` restricted (no new windows; only http/https become tabs) | yes (F2 and F3 fixed 14 Oct 2026) | UI: denied. Pages: only http/https become tabs, and only right after a real press or key (`guardWindowOpens`, src/engine/electron.ts; the `popups` check), sized popups open as real windows whose title starts with the real site (`showPopupSite`) |
-| Permission request and check handlers deny by default | in place | src/engine/electron.ts; unknown kinds and Lookout/popups refused. Client certificates: none sent (F4 fixed 15 Oct 2026, `select-client-certificate` in src/main.ts; the `clientcert` check). Gaps: device pickers (F5), answers keyed on the frame's site (F7) |
+| Permission request and check handlers deny by default | in place | src/engine/electron.ts; unknown kinds and Lookout/popups refused. Client certificates: none sent (F4 fixed 15 Oct 2026, `select-client-certificate` in src/main.ts; the `clientcert` check). Device pickers (Bluetooth, USB, serial, HID): all refused (F5 fixed 15 Oct 2026, src/main.ts; the `devices` check). Gaps: answers keyed on the frame's site (F7) |
 | Every IPC handler checks its sender (right window or frame) and the message's shape | in place | UI: `uiContents.includes(event.sender)` + type checks (src/main.ts); page helper: top frame of a Firn page, site from the frame's real address |
 | Content Security Policy on Firn's own UI pages | missing (F10, low) | index.html has none |
 | Certificate errors never silently accepted | in place | no `certificate-error` handler, so Electron refuses them |
@@ -91,7 +91,7 @@ Medium:
 - **F2** fixed (14 Oct 2026): pages could open tabs and popups without a click. Now only within 5 seconds of a real press or key in that page, one per press.
 - **F3** fixed (14 Oct 2026): popup windows showed no address. Now the window title always starts with the real site's host (from the committed address), and the page's title only comes after it.
 - **F4** fixed (15 Oct 2026): client certificates went to any site that asked (Electron picked the first). Now no site gets one.
-- **F5** Device pickers (Bluetooth, USB, serial, HID) have no handlers; Electron's default may pick a Bluetooth device without asking. Fix: refuse them all.
+- **F5** fixed (15 Oct 2026): device pickers (Bluetooth, USB, serial, HID) had no handlers. Now every one is refused and no device is ever allowed.
 - **F6** Signing runs on every branch push (build.yml). Fix: sign only on main and releases, and limit the `windows-signing` environment to those.
 
 Low:

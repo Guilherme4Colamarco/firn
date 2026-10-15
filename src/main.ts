@@ -4028,6 +4028,37 @@ app.on(
   },
 );
 
+// Device pickers (security F5): a site asking for a Bluetooth, USB, serial,
+// or HID device gets none, and no device is ever allowed. Firn shows no
+// picker for them, and a Bluetooth handler that didn't refuse would let
+// Electron hand over the first device it finds without asking. Covers every
+// session (pages, Lookout, Firn's own UI) and every page.
+app.on('session-created', (session) => {
+  session.on('select-hid-device', (event, _details, callback) => {
+    event.preventDefault();
+    callback();
+  });
+  session.on('select-usb-device', (event, _details, callback) => {
+    event.preventDefault();
+    callback();
+  });
+  session.on('select-serial-port', (event, _list, _contents, callback) => {
+    event.preventDefault();
+    callback('');
+  });
+  session.setDevicePermissionHandler(() => false);
+  if (process.platform !== 'darwin')
+    session.setBluetoothPairingHandler((_details, callback) =>
+      callback({ confirmed: false }),
+    );
+});
+app.on('web-contents-created', (_event, contents) => {
+  contents.on('select-bluetooth-device', (event, _devices, callback) => {
+    event.preventDefault();
+    callback('');
+  });
+});
+
 app.whenReady().then(() => {
   if (!isFirstInstance) return;
   serveUi();
