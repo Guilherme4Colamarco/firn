@@ -68,7 +68,7 @@ Each one: what could go wrong, and whether Firn handles it.
     - oxlint and oxfmt: lint and formatting.
 - **GitHub Actions** (.github/workflows/build.yml):
   - Secrets are never printed. *In place.*
-  - Actions are pinned to exact versions. *Missing (F12, low):* pinned to major tags (`@v5`); the Azure signing add-on and Apple's certificate are downloaded without a checksum.
+  - Actions are pinned to exact versions. *In place (F12, 15 Oct 2026):* every Action is pinned to its full commit (the version in a comment beside it); the Azure signing add-on must match NuGet's own SHA-512, and Apple's Developer ID G2 certificate must be signed by Apple's root from the Mac's built-in roots. Updating an Action or the add-on means updating the commit or the hash too.
   - Each workflow has the least permissions it needs. *Mostly:* `contents: read` by default; the Mac build gets `id-token: write` it doesn't need.
   - Signing secrets sit behind the `windows-signing` environment. *In place (F6, 15 Oct 2026):* only main and releases run in that environment and see the Mac secrets; other branches build unsigned. GitHub setting to keep: the environment allows only `main` and `v*` tags (David sets it; optionally the Mac secrets move into it).
 - **Releases stay signed:** Windows signing (Azure Artifact Signing) and Mac signing and notarization are required. A release without them must fail, never fall back. *In place:* a release fails without the secrets, and the build verifies both signatures and notarization.
@@ -100,6 +100,6 @@ Low:
 - **F9** fixed (15 Oct 2026): downloads kept right-to-left characters in names, and a page could start many downloads without a click. Now names are cleaned (`cleanName`, src/downloads.ts) and a page gets one download on its own, then one per press (`mayDownload`, src/engine/electron.ts).
 - **F10** fixed (15 Oct 2026): Firn's UI had no Content Security Policy. Now the built UI is sent with a strict one: only its own scripts, styles, and fonts, so nothing injected into the UI can run.
 - **F11** fixed (15 Oct 2026): the Ctrl+Shift+D diagnostics printed page addresses. Now a page shows only as its number (`printDiagnostics`, src/main.ts).
-- **F12** Actions pinned to major tags; downloads in the build not checksum-checked.
+- **F12** fixed (15 Oct 2026): Actions were pinned to major tags, and the build's two downloads weren't checked. Now every Action is pinned to its full commit, the signing add-on to NuGet's SHA-512, and Apple's certificate must be signed by Apple's root (.github/workflows/build.yml).
 - **F13** Saved passwords can be shown in Settings without the computer's password.
 - **F14** `react` and `react-dom` aren't pinned exactly.
