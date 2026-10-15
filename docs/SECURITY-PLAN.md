@@ -24,7 +24,7 @@ Last audit: 14 Oct 2026 (the first one, against Electron 44.7.0). Findings are n
 | `setWindowOpenHandler` restricted (no new windows; only http/https become tabs) | yes (F2 and F3 fixed 14 Oct 2026) | UI: denied. Pages: only http/https become tabs, and only right after a real press or key (`guardWindowOpens`, src/engine/electron.ts; the `popups` check), sized popups open as real windows whose title starts with the real site (`showPopupSite`) |
 | Permission request and check handlers deny by default | in place | src/engine/electron.ts; unknown kinds and Lookout/popups refused. Client certificates: none sent (F4 fixed 15 Oct 2026, `select-client-certificate` in src/main.ts; the `clientcert` check). Device pickers (Bluetooth, USB, serial, HID): all refused (F5 fixed 15 Oct 2026, src/main.ts; the `devices` check). Answers keyed on the tab's site, also for a frame from another site (F7 fixed 15 Oct 2026, `topOrigin` in src/engine/electron.ts; the `perm` check) |
 | Every IPC handler checks its sender (right window or frame) and the message's shape | in place | UI: `uiContents.includes(event.sender)` + type checks (src/main.ts); page helper: top frame of a Firn page, site from the frame's real address |
-| Content Security Policy on Firn's own UI pages | missing (F10, low) | index.html has none |
+| Content Security Policy on Firn's own UI pages | in place (was F10, fixed 15 Oct 2026) | sent with every `firn://app` file (`UI_CSP` in `serveUi`, src/main.ts): only Firn's own scripts, styles, and fonts; images also from sites (favicons) and data:. Not on Vite's dev server (it needs inline scripts); the `csp` check packages Firn and tests the real build |
 | Certificate errors never silently accepted | in place | no `certificate-error` handler, so Electron refuses them |
 | `<webview>` tag not used | in place | `webviewTag` never turned on |
 
@@ -98,7 +98,7 @@ Low:
 - **F7** fixed (15 Oct 2026): permission questions named, and answers were stored for, the asking frame's site, not the tab's. Now both use the tab's site (as Chrome does); notifications from another site's frame are refused.
 - **F8** fixed (15 Oct 2026): "open in another app" could be allowed for kinds of link abused on Windows (ms-msdt, search-ms, ms-officecmd, …). Now those, and the old scripting and help-file kinds Chrome also refuses, are refused without asking; other apps' links still ask.
 - **F9** fixed (15 Oct 2026): downloads kept right-to-left characters in names, and a page could start many downloads without a click. Now names are cleaned (`cleanName`, src/downloads.ts) and a page gets one download on its own, then one per press (`mayDownload`, src/engine/electron.ts).
-- **F10** No Content Security Policy on Firn's UI (index.html).
+- **F10** fixed (15 Oct 2026): Firn's UI had no Content Security Policy. Now the built UI is sent with a strict one: only its own scripts, styles, and fonts, so nothing injected into the UI can run.
 - **F11** Ctrl+Shift+D diagnostics print page addresses (src/main.ts, `printDiagnostics`).
 - **F12** Actions pinned to major tags; downloads in the build not checksum-checked.
 - **F13** Saved passwords can be shown in Settings without the computer's password.

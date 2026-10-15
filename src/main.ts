@@ -292,6 +292,24 @@ const UI_WEB_PREFERENCES = {
   partition: UI_PARTITION,
 };
 
+// What Firn's own UI may load (security finding F10): only its own scripts,
+// styles, and fonts, never inline or injected scripts, so a page's title or
+// address shown in the UI can never run as code. Images may also come from
+// sites (tab favicons, which are page addresses) and data: (icons, the
+// grain). Sent with the built UI only: Vite's dev server needs inline scripts.
+const UI_CSP = [
+  "default-src 'none'",
+  "script-src 'self'",
+  "style-src 'self'",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "img-src 'self' data: https: http:",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+].join('; ');
+
 // Serves the built UI's files at firn://app/…, and nothing outside its
 // folder. The UI needs no permissions (camera, notifications…): all refused.
 function serveUi() {
@@ -301,7 +319,7 @@ function serveUi() {
   );
   ui.setPermissionCheckHandler(() => false);
   const root = path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}`);
-  ui.protocol.handle(UI_SCHEME, (request) => {
+  ui.protocol.handle(UI_SCHEME, async (request) => {
     try {
       const { host, pathname } = new URL(request.url);
       const file = path.join(root, decodeURIComponent(pathname));
@@ -310,8 +328,12 @@ function serveUi() {
         host === 'app' &&
         !inside.startsWith('..') &&
         !path.isAbsolute(inside)
-      )
-        return net.fetch(pathToFileURL(file).toString());
+      ) {
+        const found = await net.fetch(pathToFileURL(file).toString());
+        const headers = new Headers(found.headers);
+        headers.set('Content-Security-Policy', UI_CSP);
+        return new Response(found.body, { status: found.status, headers });
+      }
     } catch {
       // A malformed address: not found.
     }
