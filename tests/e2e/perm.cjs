@@ -314,6 +314,24 @@ const check = (n, ok, x = '') => {
     "notifications from another site's frame: refused, no prompt",
     (await frameResult()) === 'notify:denied' && (await prompt()) === null,
   );
+  // F8: Windows tools abused from web pages can never be opened, not even
+  // with the person's OK; other apps' links still ask first.
+  await open('127.0.0.1:8765/perm.html');
+  const apps = app.windows().findLast((w) => w.url().includes('perm.html'));
+  await apps.click('#msdt');
+  await wait(800);
+  check('an ms-msdt: link: refused, no prompt', (await prompt()) === null);
+  await apps.click('#search');
+  await wait(800);
+  check('a search-ms: link: refused, no prompt', (await prompt()) === null);
+  await apps.click('#app');
+  await wait(800);
+  check(
+    "another app's link still asks",
+    (await prompt()) ===
+      '127.0.0.1:8765 wants to open “firntest” links in another app',
+    await prompt(),
+  );
   console.log(
     `\n${results.filter(Boolean).length}/${results.length} checks passed`,
   );

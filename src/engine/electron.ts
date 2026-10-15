@@ -260,6 +260,41 @@ function schemeOf(url: string | undefined) {
   return /^([a-z][a-z0-9+.-]*):/i.exec(url ?? '')?.[1].toLowerCase() ?? '';
 }
 
+// Kinds of link a site may never hand to another app, not even with the
+// person's OK: Windows tools that attackers have used to run code or show
+// convincing fake files from a web page (ms-msdt was "Follina", search-ms
+// shows a remote folder as if it were on this PC, ms-officecmd and
+// ms-appinstaller ran or installed programs), plus the old scripting and
+// help-file ones Chrome also refuses. Firn's own kinds (http, https, file)
+// never reach this point. Everything else still asks first.
+const REFUSED_SCHEMES = new Set([
+  'ms-msdt',
+  'search-ms',
+  'search',
+  'ms-officecmd',
+  'ms-appinstaller',
+  'ms-cxh',
+  'ms-cxh-full',
+  'ms-its',
+  'mk',
+  'its',
+  'hcp',
+  'ms-help',
+  'shell',
+  'res',
+  'vbscript',
+  'javascript',
+  'data',
+  'file',
+  'ie.http',
+  'view-source',
+  'disk',
+  'disks',
+  'afp',
+  'nntp',
+  'vnd.ms.radio',
+]);
+
 export class ElectronEngine implements PageEngine {
   private pages = new WeakMap<WebContents, ElectronPage>();
 
@@ -333,14 +368,21 @@ export class ElectronEngine implements PageEngine {
           originOf(details.requestingUrl) !== origin
         )
           return callback(false);
-        const external =
-          'externalURL' in details ? details.externalURL : undefined;
+        const scheme =
+          permission === 'openExternal' && 'externalURL' in details
+            ? schemeOf(details.externalURL)
+            : '';
+        if (
+          kinds.includes('external') &&
+          (!scheme || REFUSED_SCHEMES.has(scheme))
+        )
+          return callback(false);
         let answered = false;
         listener({
           page,
           origin,
           kinds,
-          detail: permission === 'openExternal' ? schemeOf(external) : '',
+          detail: scheme,
           respond: (allow) => {
             if (answered) return;
             answered = true;

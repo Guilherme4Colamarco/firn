@@ -39,7 +39,7 @@ Each one: what could go wrong, and whether Firn handles it.
 - **Downloads:** dangerous file types, filename tricks (right-to-left characters, double extensions, very long names, path parts), and where files land.
   *Status: partly (F9).* Names are cleaned of Windows' forbidden characters and land in Downloads; right-to-left characters are kept, and a page can start many downloads with no click. Mark of the Web on Windows: in place (David checked, 14 Oct 2026: a downloaded .exe's Properties says it came from another computer).
 - **Permission prompts:** camera, microphone, location, notifications, and clipboard. The prompt names the real site, and one site's answer never applies to another.
-  *Status: partly (F8).* Only tabs ask; answers are per site, the tab's (what the address bar shows), also when a frame from another site asks; notifications from another site's frame are refused. But "open in another app" can be allowed for any kind of link.
+  *Status: in place (F7, F8).* Only tabs ask; answers are per site, the tab's (what the address bar shows), also when a frame from another site asks; notifications from another site's frame are refused. "Open in another app" is never offered for Windows tools abused from web pages (`REFUSED_SCHEMES` in src/engine/electron.ts).
 - **Links from other apps:** the command line (Windows) and `open-url`/`open-file` (Mac). Only http, https, and existing local web files get through, and nothing can pass as a Chromium setting.
   *Status: in place.* src/defaultBrowser.ts (`linksFromArguments`, `--` before `%1`), `open-url`/`open-file` in src/main.ts.
 - **Lookout and split view:** they never show one site's address over another site's page.
@@ -96,7 +96,7 @@ Medium:
 
 Low:
 - **F7** fixed (15 Oct 2026): permission questions named, and answers were stored for, the asking frame's site, not the tab's. Now both use the tab's site (as Chrome does); notifications from another site's frame are refused.
-- **F8** "Open in another app" can be allowed for schemes abused on Windows (ms-msdt, search-ms, ms-officecmd, …).
+- **F8** fixed (15 Oct 2026): "open in another app" could be allowed for kinds of link abused on Windows (ms-msdt, search-ms, ms-officecmd, …). Now those, and the old scripting and help-file kinds Chrome also refuses, are refused without asking; other apps' links still ask.
 - **F9** Downloads keep right-to-left characters in names, and a page can start many downloads without a click (src/downloads.ts).
 - **F10** No Content Security Policy on Firn's UI (index.html).
 - **F11** Ctrl+Shift+D diagnostics print page addresses (src/main.ts, `printDiagnostics`).
