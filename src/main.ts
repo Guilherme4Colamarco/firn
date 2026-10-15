@@ -4016,6 +4016,18 @@ app.on('open-file', (event, file) => {
   receiveLinks([pathToFileURL(file).href]);
 });
 
+// A site asking for a client certificate (security F4) gets none: left
+// alone, Electron would quietly hand any site the first certificate on the
+// computer, which can identify the person. Sites that need one are rare
+// (some company and government sign-ins) and fall back to their own error.
+app.on(
+  'select-client-certificate',
+  (event, _contents, _url, _list, callback) => {
+    event.preventDefault();
+    callback();
+  },
+);
+
 app.whenReady().then(() => {
   if (!isFirstInstance) return;
   serveUi();
