@@ -70,7 +70,7 @@ Each one: what could go wrong, and whether Firn handles it.
   - Secrets are never printed. *In place.*
   - Actions are pinned to exact versions. *Missing (F12, low):* pinned to major tags (`@v5`); the Azure signing add-on and Apple's certificate are downloaded without a checksum.
   - Each workflow has the least permissions it needs. *Mostly:* `contents: read` by default; the Mac build gets `id-token: write` it doesn't need.
-  - Signing secrets sit behind the `windows-signing` environment. *Partly (F6, medium):* every push to any branch runs in that environment, and the Mac secrets are repository-wide. Whether the environment limits branches is a GitHub setting to check.
+  - Signing secrets sit behind the `windows-signing` environment. *In place (F6, 15 Oct 2026):* only main and releases run in that environment and see the Mac secrets; other branches build unsigned. GitHub setting to keep: the environment allows only `main` and `v*` tags (David sets it; optionally the Mac secrets move into it).
 - **Releases stay signed:** Windows signing (Azure Artifact Signing) and Mac signing and notarization are required. A release without them must fail, never fall back. *In place:* a release fails without the secrets, and the build verifies both signatures and notarization.
 - **The Safe Browsing key** ships inside every copy of Firn, so assume anyone can read it. It must be restricted in Google's console to the Safe Browsing API only. *In place* (David checked, 14 Oct 2026): restricted to the Safe Browsing API. No application restriction, rightly: Google's choices (websites, IP addresses, Android, iOS) don't fit a desktop app.
 
@@ -92,7 +92,7 @@ Medium:
 - **F3** fixed (14 Oct 2026): popup windows showed no address. Now the window title always starts with the real site's host (from the committed address), and the page's title only comes after it.
 - **F4** fixed (15 Oct 2026): client certificates went to any site that asked (Electron picked the first). Now no site gets one.
 - **F5** fixed (15 Oct 2026): device pickers (Bluetooth, USB, serial, HID) had no handlers. Now every one is refused and no device is ever allowed.
-- **F6** Signing runs on every branch push (build.yml). Fix: sign only on main and releases, and limit the `windows-signing` environment to those.
+- **F6** fixed (15 Oct 2026): signing ran on every branch push. Now only main and releases sign; other branches build unsigned, outside `windows-signing`, without the signing secrets.
 
 Low:
 - **F7** Permission answers are stored for the asking frame's site, not the tab's (src/engine/electron.ts, src/main.ts).
