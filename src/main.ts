@@ -7,6 +7,8 @@ import {
   Menu,
   nativeImage,
   nativeTheme,
+  net,
+  protocol,
   screen,
   safeStorage,
   session,
@@ -268,13 +270,76 @@ const DEFAULT_SPACE_ID = 'space-default';
 
 const NAV_COMMANDS: NavCommand[] = ['back', 'forward', 'reload', 'stop'];
 
+// Firn's UI lives at firn://app/… in its own private session (see serveUi),
+// so web pages, which all share the default session, can never reach its
+// files, and local web pages get no file access beyond Chrome's (the
+// GrantFileProtocolExtraPrivileges fuse is off, forge.config.mts).
+const UI_SCHEME = 'firn';
+const UI_PARTITION = 'firn-ui';
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: UI_SCHEME,
+    privileges: { standard: true, secure: true, supportFetchAPI: true },
+  },
+]);
+
 // Same safe settings as web pages, plus the narrow preload bridge.
 const UI_WEB_PREFERENCES = {
   preload: path.join(__dirname, 'preload.cjs'),
   contextIsolation: true,
   sandbox: true,
   nodeIntegration: false,
+  partition: UI_PARTITION,
 };
+
+// What Firn's own UI may load (security finding F10): only its own scripts,
+// styles, and fonts, never inline or injected scripts, so a page's title or
+// address shown in the UI can never run as code. Images may also come from
+// sites (tab favicons, which are page addresses) and data: (icons, the
+// grain). Sent with the built UI only: Vite's dev server needs inline scripts.
+const UI_CSP = [
+  "default-src 'none'",
+  "script-src 'self'",
+  "style-src 'self'",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "img-src 'self' data: https: http:",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+].join('; ');
+
+// Serves the built UI's files at firn://app/…, and nothing outside its
+// folder. The UI needs no permissions (camera, notifications…): all refused.
+function serveUi() {
+  const ui = session.fromPartition(UI_PARTITION);
+  ui.setPermissionRequestHandler((_web, _permission, callback) =>
+    callback(false),
+  );
+  ui.setPermissionCheckHandler(() => false);
+  const root = path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}`);
+  ui.protocol.handle(UI_SCHEME, async (request) => {
+    try {
+      const { host, pathname } = new URL(request.url);
+      const file = path.join(root, decodeURIComponent(pathname));
+      const inside = path.relative(root, file);
+      if (
+        host === 'app' &&
+        !inside.startsWith('..') &&
+        !path.isAbsolute(inside)
+      ) {
+        const found = await net.fetch(pathToFileURL(file).toString());
+        const headers = new Headers(found.headers);
+        headers.set('Content-Security-Policy', UI_CSP);
+        return new Response(found.body, { status: found.status, headers });
+      }
+    } catch {
+      // A malformed address: not found.
+    }
+    return new Response(null, { status: 404 });
+  });
+}
 
 // Loads Firn's UI. `view` picks which part: the sidebar (default), the
 // floating layer (command bar, tab switcher), the top bar, or the sidebar
@@ -291,10 +356,10 @@ function loadUi(web: WebContents, view?: LayerView) {
       url.searchParams.set(key, value);
     web.loadURL(url.toString());
   } else {
-    web.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
-      Object.keys(query).length ? { query } : undefined,
-    );
+    const url = new URL(`${UI_SCHEME}://app/index.html`);
+    for (const [key, value] of Object.entries(query))
+      url.searchParams.set(key, value);
+    web.loadURL(url.toString());
   }
 }
 
@@ -3973,8 +4038,52 @@ app.on('open-file', (event, file) => {
   receiveLinks([pathToFileURL(file).href]);
 });
 
+// A site asking for a client certificate (security F4) gets none: left
+// alone, Electron would quietly hand any site the first certificate on the
+// computer, which can identify the person. Sites that need one are rare
+// (some company and government sign-ins) and fall back to their own error.
+app.on(
+  'select-client-certificate',
+  (event, _contents, _url, _list, callback) => {
+    event.preventDefault();
+    callback();
+  },
+);
+
+// Device pickers (security F5): a site asking for a Bluetooth, USB, serial,
+// or HID device gets none, and no device is ever allowed. Firn shows no
+// picker for them, and a Bluetooth handler that didn't refuse would let
+// Electron hand over the first device it finds without asking. Covers every
+// session (pages, Lookout, Firn's own UI) and every page.
+app.on('session-created', (session) => {
+  session.on('select-hid-device', (event, _details, callback) => {
+    event.preventDefault();
+    callback();
+  });
+  session.on('select-usb-device', (event, _details, callback) => {
+    event.preventDefault();
+    callback();
+  });
+  session.on('select-serial-port', (event, _list, _contents, callback) => {
+    event.preventDefault();
+    callback('');
+  });
+  session.setDevicePermissionHandler(() => false);
+  if (process.platform !== 'darwin')
+    session.setBluetoothPairingHandler((_details, callback) =>
+      callback({ confirmed: false }),
+    );
+});
+app.on('web-contents-created', (_event, contents) => {
+  contents.on('select-bluetooth-device', (event, _devices, callback) => {
+    event.preventDefault();
+    callback('');
+  });
+});
+
 app.whenReady().then(() => {
   if (!isFirstInstance) return;
+  serveUi();
   createWindow();
   if (!DEMO) startUpdates(debug);
 

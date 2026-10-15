@@ -6,6 +6,7 @@ import path from 'node:path';
 import {
   BrowserWindow,
   ipcMain,
+  session as sessions,
   WebContentsView,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
@@ -43,6 +44,117 @@ const SAFE_WEB_PREFERENCES = {
   // its own isolated world: the page can't see or call it.
   preload: path.join(__dirname, 'page-preload.cjs'),
 };
+
+// Pages may open tabs, Lookout, and popup windows only right after a
+// real press or key in them (security F2): Electron has no popup blocker
+// of its own. Like Chrome, a press counts for 5 seconds (time for a
+// sign-in button to ask its server first) and opens one thing only, so
+// one click can't flood the sidebar. Taps and touch count too, and so do
+// presses inside the page's frames. A popup window gets the same rule,
+// and whatever it opens follows `open` too. `open` returns whether a real
+// popup window may open.
+const PRESS_LASTS_MS = 5000;
+const PRESSES = new Set([
+  'mouseDown',
+  'mouseUp',
+  'rawKeyDown',
+  'keyDown',
+  'touchEnd',
+  'gestureTap',
+]);
+function guardWindowOpens(
+  web: Electron.WebContents,
+  open: (
+    url: string,
+    disposition: string,
+    features: string,
+    referrer: Referrer,
+  ) => boolean,
+) {
+  let pressedAt = -Infinity;
+  web.on('input-event', (_event, input) => {
+    if (!PRESSES.has(input.type)) return;
+    pressedAt = performance.now();
+    downloadUsed.delete(web);
+  });
+  web.setWindowOpenHandler(({ url, disposition, features, referrer }) => {
+    if (performance.now() - pressedAt > PRESS_LASTS_MS)
+      return { action: 'deny' };
+    pressedAt = -Infinity;
+    if (!open(url, disposition, features, referrer)) return { action: 'deny' };
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        autoHideMenuBar: true,
+        webPreferences: SAFE_WEB_PREFERENCES,
+      },
+    };
+  });
+  web.on('did-create-window', (popup) => {
+    showPopupSite(popup);
+    guardWindowOpens(popup.webContents, open);
+  });
+}
+
+// A page may start one download on its own (security F9), as in Chrome:
+// the first one after it opens, after Firn loads an address into it, or
+// after each real press or key in it (see guardWindowOpens). Any more
+// before the next press are refused, so a page can't pour files into
+// Downloads. (Firn's own downloads, like trying one again, come from no
+// page and always go ahead.)
+const downloadUsed = new WeakSet<WebContents>();
+const downloadAllowed = new WeakMap<Electron.DownloadItem, boolean>();
+function mayDownload(item: Electron.DownloadItem, web?: WebContents) {
+  // Decided once per download, however many windows are listening.
+  let allowed = downloadAllowed.get(item);
+  if (allowed === undefined) {
+    allowed = !web || !downloadUsed.has(web);
+    if (web) downloadUsed.add(web);
+    downloadAllowed.set(item, allowed);
+  }
+  return allowed;
+}
+
+// A popup window has no address bar, so its title shows the site
+// (security F3): it always starts with the host of the address actually
+// loaded (`getURL()`, the committed one, never the one asked for), and the
+// page's own title only comes after it, so a page can't pose as another
+// site. Hosts come out in punycode (xn--…), as lookalike letters would
+// otherwise hide a different site.
+function popupSite(url: string) {
+  try {
+    const u = new URL(url);
+    if (u.protocol === 'http:' || u.protocol === 'https:') return u.host;
+    if (u.protocol === 'about:') return 'about:blank';
+    return u.protocol.replace(/:$/, '');
+  } catch {
+    return '';
+  }
+}
+function showPopupSite(popup: Electron.BrowserWindow) {
+  const web = popup.webContents;
+  let pageTitle = '';
+  const update = () => {
+    if (popup.isDestroyed()) return;
+    const site = popupSite(web.getURL());
+    const title = pageTitle.trim();
+    popup.setTitle(
+      site && title && title !== site ? `${site} — ${title}` : site || title,
+    );
+  };
+  popup.on('page-title-updated', (event, title) => {
+    event.preventDefault();
+    pageTitle = title;
+    update();
+  });
+  // A new page starts with no title of its own until it gives one.
+  web.on('did-navigate', () => {
+    pageTitle = '';
+    update();
+  });
+  web.on('did-navigate-in-page', update);
+  update();
+}
 
 // Saved passwords are only saved and filled on secure sites (and on this
 // computer, for testing).
@@ -153,10 +265,56 @@ function originOf(url: string | undefined) {
   }
 }
 
+// The site actually loaded in a page's top frame (what the address bar
+// shows), or '' if there's none (a blank or sandboxed page).
+function topOrigin(web: WebContents) {
+  try {
+    const origin = web.mainFrame.origin;
+    return origin && origin !== 'null' ? origin : '';
+  } catch {
+    return '';
+  }
+}
+
 // The kind of link an app opens, e.g. "zoommtg" for "zoommtg://...".
 function schemeOf(url: string | undefined) {
   return /^([a-z][a-z0-9+.-]*):/i.exec(url ?? '')?.[1].toLowerCase() ?? '';
 }
+
+// Kinds of link a site may never hand to another app, not even with the
+// person's OK: Windows tools that attackers have used to run code or show
+// convincing fake files from a web page (ms-msdt was "Follina", search-ms
+// shows a remote folder as if it were on this PC, ms-officecmd and
+// ms-appinstaller ran or installed programs), plus the old scripting and
+// help-file ones Chrome also refuses. Firn's own kinds (http, https, file)
+// never reach this point. Everything else still asks first.
+const REFUSED_SCHEMES = new Set([
+  'ms-msdt',
+  'search-ms',
+  'search',
+  'ms-officecmd',
+  'ms-appinstaller',
+  'ms-cxh',
+  'ms-cxh-full',
+  'ms-its',
+  'mk',
+  'its',
+  'hcp',
+  'ms-help',
+  'shell',
+  'res',
+  'vbscript',
+  'javascript',
+  'data',
+  'file',
+  'ie.http',
+  'view-source',
+  'disk',
+  'disks',
+  'afp',
+  'nntp',
+  'vnd.ms.radio',
+]);
 
 export class ElectronEngine implements PageEngine {
   private pages = new WeakMap<WebContents, ElectronPage>();
@@ -192,11 +350,18 @@ export class ElectronEngine implements PageEngine {
     return this.win.isDestroyed();
   }
 
-  // Downloads come from the browsing session that every page shares.
+  // Downloads come from the browsing session that every page shares (the
+  // default one; Firn's own UI has its own, see serveUi in src/main.ts).
   onDownload(listener: (download: EngineDownload) => void) {
-    const session = this.win.webContents.session;
-    const handler = (_event: Electron.Event, item: Electron.DownloadItem) =>
+    const session = sessions.defaultSession;
+    const handler = (
+      event: Electron.Event,
+      item: Electron.DownloadItem,
+      web?: WebContents,
+    ) => {
+      if (!mayDownload(item, web)) return event.preventDefault();
       listener(wrapDownload(item));
+    };
     session.on('will-download', handler);
     this.win.on('closed', () =>
       session.removeListener('will-download', handler),
@@ -211,7 +376,7 @@ export class ElectronEngine implements PageEngine {
       detail: string,
     ) => boolean,
   ) {
-    const session = this.win.webContents.session;
+    const session = sessions.defaultSession;
     session.setPermissionRequestHandler(
       (web, permission, callback, details) => {
         if (HARMLESS_PERMISSIONS.has(permission)) return callback(true);
@@ -219,14 +384,32 @@ export class ElectronEngine implements PageEngine {
         const kinds = kindsOf(permission, media);
         const page = web ? (this.pages.get(web) ?? null) : null;
         if (!kinds || !page) return callback(false);
-        const external =
-          'externalURL' in details ? details.externalURL : undefined;
+        // Asked about, and answered for, the tab's own site (the one in the
+        // address bar), even when a frame from another site asks, as Chrome
+        // does. A frame only gets this far if the page allowed it
+        // (`<iframe allow="camera">`; Chromium enforces that). Notifications
+        // from another site's frame are refused outright (mostly ads).
+        const origin = topOrigin(web);
+        if (
+          kinds.includes('notifications') &&
+          originOf(details.requestingUrl) !== origin
+        )
+          return callback(false);
+        const scheme =
+          permission === 'openExternal' && 'externalURL' in details
+            ? schemeOf(details.externalURL)
+            : '';
+        if (
+          kinds.includes('external') &&
+          (!scheme || REFUSED_SCHEMES.has(scheme))
+        )
+          return callback(false);
         let answered = false;
         listener({
           page,
-          origin: originOf(details.requestingUrl),
+          origin,
           kinds,
-          detail: permission === 'openExternal' ? schemeOf(external) : '',
+          detail: scheme,
           respond: (allow) => {
             if (answered) return;
             answered = true;
@@ -236,17 +419,21 @@ export class ElectronEngine implements PageEngine {
       },
     );
     session.setPermissionCheckHandler(
-      (_web, permission, requestingOrigin, details) => {
+      (web, permission, requestingOrigin, details) => {
         if (HARMLESS_PERMISSIONS.has(permission)) return true;
         const media =
           'mediaType' in details && details.mediaType
             ? [details.mediaType]
             : [];
         const kinds = kindsOf(permission, media);
-        return (
-          !!kinds &&
-          kinds.every((kind) => isAllowed(originOf(requestingOrigin), kind, ''))
-        );
+        if (!kinds) return false;
+        // The tab's site, as for requests above. No page (a site's
+        // background worker): its own site.
+        const frameOrigin = originOf(requestingOrigin);
+        const origin = web ? topOrigin(web) : frameOrigin;
+        if (kinds.includes('notifications') && frameOrigin !== origin)
+          return false;
+        return kinds.every((kind) => isAllowed(origin, kind, ''));
       },
     );
     this.win.on('closed', () => {
@@ -311,7 +498,7 @@ export class ElectronEngine implements PageEngine {
     check: (url: string) => Promise<string | null> | string | null,
     onBlocked: (page: Page | null, url: string, threat: string) => void,
   ) {
-    const session = this.win.webContents.session;
+    const session = sessions.defaultSession;
     session.webRequest.onBeforeRequest(
       { urls: ['http://*/*', 'https://*/*'] },
       (details, callback) => {
@@ -376,7 +563,7 @@ export class ElectronEngine implements PageEngine {
   }
 
   download(url: string) {
-    if (!this.win.isDestroyed()) this.win.webContents.session.downloadURL(url);
+    if (!this.win.isDestroyed()) sessions.defaultSession.downloadURL(url);
   }
 }
 
@@ -527,6 +714,7 @@ class ElectronPage implements Page {
   }
 
   load(url: string, referrer?: Referrer) {
+    downloadUsed.delete(this.web);
     this.web.loadURL(
       url,
       referrer?.url
@@ -780,26 +968,19 @@ class ElectronPage implements Page {
     // (which Chromium treats as "open in a new window") open in Lookout.
     // Real popup windows (sign-in flows and the like, which a page opens
     // with a size or other window features) stay popups so they keep
-    // working.
-    web.setWindowOpenHandler(({ url, disposition, features, referrer }) => {
+    // working. All of it only right after a real press or key in the page
+    // (security F2, see guardWindowOpens).
+    guardWindowOpens(web, (url, disposition, features, referrer) => {
       const isWeb = /^https?:/i.test(url);
       if (disposition === 'new-window' && !features && isWeb) {
         events().onLookout(url, referrer);
-        return { action: 'deny' };
+        return false;
       }
-      if (disposition === 'new-window') {
-        return {
-          action: 'allow',
-          overrideBrowserWindowOptions: {
-            autoHideMenuBar: true,
-            webPreferences: SAFE_WEB_PREFERENCES,
-          },
-        };
-      }
+      if (disposition === 'new-window') return true;
       // (With where it was followed from, as a link opened in Chrome.)
       if (isWeb)
         events().onOpenTab(url, disposition === 'background-tab', referrer);
-      return { action: 'deny' };
+      return false;
     });
 
     // A press inside the page (the person starting to work in it).
@@ -824,7 +1005,10 @@ class ElectronPage implements Page {
         selectAll: () => web.selectAll(),
         copyImage: () => web.copyImageAt(params.x, params.y),
         // With no download handler yet, Chromium asks where to save it.
-        saveImage: () => web.downloadURL(params.srcURL),
+        saveImage: () => {
+          downloadUsed.delete(web);
+          web.downloadURL(params.srcURL);
+        },
         replaceMisspelling: (word) => web.replaceMisspelling(word),
       }),
     );

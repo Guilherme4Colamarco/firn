@@ -113,16 +113,18 @@ const check = (n, ok, x = '') => {
   await open('mix.html');
   await dragIn('Gray');
   check('a new split view', (await names()) === 'mix|gray', await names());
-  await app.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows()[0]
-      .contentView.children.find(
-        (v) => v.webContents && v.webContents.getURL().endsWith('/mix.html'),
-      )
-      .webContents.executeJavaScript(
-        "window.open('http://127.0.0.1:8765/two.html')",
-        true,
-      ),
-  );
+  // (After a real press in the page: pages open tabs only then, F2.)
+  await app.evaluate(({ BrowserWindow }) => {
+    const web = BrowserWindow.getAllWindows()[0].contentView.children.find(
+      (v) => v.webContents && v.webContents.getURL().endsWith('/mix.html'),
+    ).webContents;
+    for (const type of ['mouseDown', 'mouseUp'])
+      web.sendInputEvent({ type, x: 5, y: 5, button: 'left', clickCount: 1 });
+    return web.executeJavaScript(
+      "window.open('http://127.0.0.1:8765/two.html')",
+      true,
+    );
+  });
   await wait(1500);
   const rows = await ui.evaluate(() =>
     [

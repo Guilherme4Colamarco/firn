@@ -174,7 +174,8 @@ export type PermissionKind =
   | 'external';
 
 // A site asking to use something. `page` is the page asking (null if it
-// isn't one of Firn's pages), `origin` the site, e.g. "https://meet.google.com".
+// isn't one of Firn's pages), `origin` the tab's site (also when a frame
+// from another site asks), e.g. "https://meet.google.com".
 // For 'external', `detail` is the kind of link, e.g. "zoommtg".
 export interface PermissionRequest {
   page: Page | null;

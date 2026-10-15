@@ -213,6 +213,9 @@ const config: ForgeConfig = {
       [FuseV1Options.EnableNodeCliInspectArguments]: false,
       [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
       [FuseV1Options.OnlyLoadAppFromAsar]: true,
+      // Local (file://) pages get Chrome's limits: no reading other local
+      // files. Firn's UI loads from firn://app instead (src/main.ts).
+      [FuseV1Options.GrantFileProtocolExtraPrivileges]: false,
     }),
   ],
 };

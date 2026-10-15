@@ -19,6 +19,32 @@ const MAX_REMEMBERED = 30;
 // Progress is passed on at most this often.
 const PROGRESS_MS = 250;
 
+// Hidden direction marks (right-to-left override and friends): with them a
+// file called "photo\u202Egpj.exe" shows as "photoexe.jpg" (security F9).
+const DIRECTION_MARKS = /[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/g;
+// Longest name kept (Windows allows 255, and a long one hides its ending).
+const MAX_NAME = 150;
+
+// A site's suggested file name, made safe to save and honest to show:
+// characters Windows doesn't allow (and control characters) become "_",
+// direction marks go, runs of spaces become one (so spaces can't push the
+// real ending out of sight), and the dots and spaces Windows drops from
+// the end go too. A very long name is shortened, keeping its ending.
+export function cleanName(suggested: string) {
+  let name = [...path.basename(suggested).replace(DIRECTION_MARKS, '')]
+    .map((c) => (/[<>:"/\\|?*]/.test(c) || c.charCodeAt(0) < 32 ? '_' : c))
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[. ]+$/, '');
+  if (name.length > MAX_NAME) {
+    const ending = path.extname(name);
+    const ext = ending.length <= 20 ? ending : '';
+    name = name.slice(0, MAX_NAME - ext.length).trimEnd() + ext;
+  }
+  return name || 'download';
+}
+
 export class Downloads {
   private list: Download[] = [];
   private items = new Map<string, EngineDownload>();
@@ -139,10 +165,7 @@ export class Downloads {
   // a file (or a download in progress) already has it.
   private freePath(suggested: string) {
     const folder = this.folder();
-    // Characters Windows doesn't allow in file names (and control characters).
-    const clean = [...path.basename(suggested)]
-      .map((c) => (/[<>:"/\\|?*]/.test(c) || c.charCodeAt(0) < 32 ? '_' : c))
-      .join('');
+    const clean = cleanName(suggested);
     const ext = path.extname(clean);
     const stem = clean.slice(0, clean.length - ext.length) || 'download';
     const taken = (p: string) =>

@@ -4,6 +4,10 @@
 #   then builds "Firn Setup.exe" (Windows) and a .zip with Firn.app (macOS,
 #   one app for Apple-silicon and Intel Macs). Download them from the run's page under
 #   "Artifacts" (kept for 30 days).
+# - Only main and releases are signed (security F6). A push to any other
+#   branch builds an unsigned Firn (a basic signature on Mac), runs in the
+#   "branch-builds" environment instead of "windows-signing", and never
+#   sees the signing secrets, so code on a branch can't reach them.
 # - Publishing a release on GitHub (tag "v" + the version in package.json,
 #   e.g. v0.1.0): builds both and attaches them to the release's page, the
 #   public download page to share.
@@ -17,7 +21,7 @@
 # MAC_CERTIFICATE_P12 (the .p12 file, as base64 text),
 # MAC_CERTIFICATE_PASSWORD, APPLE_API_KEY_P8 (the App Store Connect key's
 # text), APPLE_API_KEY_ID, APPLE_API_ISSUER, and APPLE_TEAM_ID. Without
-# them, a push still builds a Mac app with a basic ("ad-hoc") signature,
+# them, a push to main still builds a Mac app with a basic ("ad-hoc") signature,
 # but a release refuses to build.
 #
 # The Windows build signs Firn with David's certificate from Azure Artifact
@@ -26,7 +30,11 @@
 # vouches for this job, run in the "windows-signing" environment, which
 # Azure trusts. The repository secrets AZURE_CLIENT_ID, AZURE_TENANT_ID,
 # and AZURE_SUBSCRIPTION_ID say which Azure app and account. Without them,
-# a push builds an unsigned Firn; a release refuses to build.
+# a push to main builds an unsigned Firn; a release refuses to build.
+#
+# On GitHub (Settings > Environments > windows-signing > Deployment
+# branches and tags), the environment allows only the main branch and
+# "v*" tags, so even an edited workflow on a branch can't sign.
 
 name: Build
 
@@ -75,8 +83,11 @@ jobs:
             os: macos-26
             make: npm run make -- --arch=universal
     runs-on: ${{ matrix.os }}
-    # Azure trusts this environment's runs for Windows signing.
-    environment: windows-signing
+    # Azure trusts the windows-signing environment's runs for Windows
+    # signing; only main and releases run in it (security F6).
+    environment: ${{ (github.event_name == 'release' || github.ref == 'refs/heads/main') && 'windows-signing' || 'branch-builds' }}
+    env:
+      FIRN_SIGN: ${{ github.event_name == 'release' || github.ref == 'refs/heads/main' }}
     permissions:
       contents: read
       id-token: write
@@ -97,7 +108,7 @@ jobs:
             exit 1
           fi
       - name: Set up Mac signing
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && env.FIRN_SIGN == 'true'
         env:
           MAC_CERTIFICATE_P12: ${{ secrets.MAC_CERTIFICATE_P12 }}
           MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
@@ -137,7 +148,7 @@ jobs:
           echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
       - name: Check for the Windows signing secrets
         id: windows-signing
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && env.FIRN_SIGN == 'true'
         shell: bash
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -202,8 +213,8 @@ jobs:
         run: ${{ matrix.make }}
         env:
           FIRN_SAFE_BROWSING_KEY: ${{ secrets.FIRN_SAFE_BROWSING_KEY }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_ID: ${{ env.FIRN_SIGN == 'true' && secrets.APPLE_API_KEY_ID || '' }}
+          APPLE_API_ISSUER: ${{ env.FIRN_SIGN == 'true' && secrets.APPLE_API_ISSUER || '' }}
       - name: Check the Mac app is signed and notarized
         if: runner.os == 'macOS' && env.FIRN_MAC_KEYCHAIN != ''
         env:
