@@ -244,6 +244,17 @@ function originOf(url: string | undefined) {
   }
 }
 
+// The site actually loaded in a page's top frame (what the address bar
+// shows), or '' if there's none (a blank or sandboxed page).
+function topOrigin(web: WebContents) {
+  try {
+    const origin = web.mainFrame.origin;
+    return origin && origin !== 'null' ? origin : '';
+  } catch {
+    return '';
+  }
+}
+
 // The kind of link an app opens, e.g. "zoommtg" for "zoommtg://...".
 function schemeOf(url: string | undefined) {
   return /^([a-z][a-z0-9+.-]*):/i.exec(url ?? '')?.[1].toLowerCase() ?? '';
@@ -311,12 +322,23 @@ export class ElectronEngine implements PageEngine {
         const kinds = kindsOf(permission, media);
         const page = web ? (this.pages.get(web) ?? null) : null;
         if (!kinds || !page) return callback(false);
+        // Asked about, and answered for, the tab's own site (the one in the
+        // address bar), even when a frame from another site asks, as Chrome
+        // does. A frame only gets this far if the page allowed it
+        // (`<iframe allow="camera">`; Chromium enforces that). Notifications
+        // from another site's frame are refused outright (mostly ads).
+        const origin = topOrigin(web);
+        if (
+          kinds.includes('notifications') &&
+          originOf(details.requestingUrl) !== origin
+        )
+          return callback(false);
         const external =
           'externalURL' in details ? details.externalURL : undefined;
         let answered = false;
         listener({
           page,
-          origin: originOf(details.requestingUrl),
+          origin,
           kinds,
           detail: permission === 'openExternal' ? schemeOf(external) : '',
           respond: (allow) => {
@@ -328,17 +350,21 @@ export class ElectronEngine implements PageEngine {
       },
     );
     session.setPermissionCheckHandler(
-      (_web, permission, requestingOrigin, details) => {
+      (web, permission, requestingOrigin, details) => {
         if (HARMLESS_PERMISSIONS.has(permission)) return true;
         const media =
           'mediaType' in details && details.mediaType
             ? [details.mediaType]
             : [];
         const kinds = kindsOf(permission, media);
-        return (
-          !!kinds &&
-          kinds.every((kind) => isAllowed(originOf(requestingOrigin), kind, ''))
-        );
+        if (!kinds) return false;
+        // The tab's site, as for requests above. No page (a site's
+        // background worker): its own site.
+        const frameOrigin = originOf(requestingOrigin);
+        const origin = web ? topOrigin(web) : frameOrigin;
+        if (kinds.includes('notifications') && frameOrigin !== origin)
+          return false;
+        return kinds.every((kind) => isAllowed(origin, kind, ''));
       },
     );
     this.win.on('closed', () => {

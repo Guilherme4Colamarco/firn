@@ -22,7 +22,7 @@ Last audit: 14 Oct 2026 (the first one, against Electron 44.7.0). Findings are n
 | Fuse: GrantFileProtocolExtraPrivileges off | in place (was F1, fixed 14 Oct 2026) | forge.config.mts; Firn's UI loads from `firn://app` in its own session (`serveUi`, src/main.ts), so web pages can't reach it; the `fileaccess` check |
 | `will-navigate` restricted (Firn's own UI never navigates away) | in place | `lockUi` (src/main.ts) |
 | `setWindowOpenHandler` restricted (no new windows; only http/https become tabs) | yes (F2 and F3 fixed 14 Oct 2026) | UI: denied. Pages: only http/https become tabs, and only right after a real press or key (`guardWindowOpens`, src/engine/electron.ts; the `popups` check), sized popups open as real windows whose title starts with the real site (`showPopupSite`) |
-| Permission request and check handlers deny by default | in place | src/engine/electron.ts; unknown kinds and Lookout/popups refused. Client certificates: none sent (F4 fixed 15 Oct 2026, `select-client-certificate` in src/main.ts; the `clientcert` check). Device pickers (Bluetooth, USB, serial, HID): all refused (F5 fixed 15 Oct 2026, src/main.ts; the `devices` check). Gaps: answers keyed on the frame's site (F7) |
+| Permission request and check handlers deny by default | in place | src/engine/electron.ts; unknown kinds and Lookout/popups refused. Client certificates: none sent (F4 fixed 15 Oct 2026, `select-client-certificate` in src/main.ts; the `clientcert` check). Device pickers (Bluetooth, USB, serial, HID): all refused (F5 fixed 15 Oct 2026, src/main.ts; the `devices` check). Answers keyed on the tab's site, also for a frame from another site (F7 fixed 15 Oct 2026, `topOrigin` in src/engine/electron.ts; the `perm` check) |
 | Every IPC handler checks its sender (right window or frame) and the message's shape | in place | UI: `uiContents.includes(event.sender)` + type checks (src/main.ts); page helper: top frame of a Firn page, site from the frame's real address |
 | Content Security Policy on Firn's own UI pages | missing (F10, low) | index.html has none |
 | Certificate errors never silently accepted | in place | no `certificate-error` handler, so Electron refuses them |
@@ -39,7 +39,7 @@ Each one: what could go wrong, and whether Firn handles it.
 - **Downloads:** dangerous file types, filename tricks (right-to-left characters, double extensions, very long names, path parts), and where files land.
   *Status: partly (F9).* Names are cleaned of Windows' forbidden characters and land in Downloads; right-to-left characters are kept, and a page can start many downloads with no click. Mark of the Web on Windows: in place (David checked, 14 Oct 2026: a downloaded .exe's Properties says it came from another computer).
 - **Permission prompts:** camera, microphone, location, notifications, and clipboard. The prompt names the real site, and one site's answer never applies to another.
-  *Status: partly (F7, F8).* Only tabs ask; answers are per site. But the site is the asking frame's, not the tab's, and "open in another app" can be allowed for any kind of link.
+  *Status: partly (F8).* Only tabs ask; answers are per site, the tab's (what the address bar shows), also when a frame from another site asks; notifications from another site's frame are refused. But "open in another app" can be allowed for any kind of link.
 - **Links from other apps:** the command line (Windows) and `open-url`/`open-file` (Mac). Only http, https, and existing local web files get through, and nothing can pass as a Chromium setting.
   *Status: in place.* src/defaultBrowser.ts (`linksFromArguments`, `--` before `%1`), `open-url`/`open-file` in src/main.ts.
 - **Lookout and split view:** they never show one site's address over another site's page.
@@ -95,7 +95,7 @@ Medium:
 - **F6** fixed (15 Oct 2026): signing ran on every branch push. Now only main and releases sign; other branches build unsigned, outside `windows-signing`, without the signing secrets.
 
 Low:
-- **F7** Permission answers are stored for the asking frame's site, not the tab's (src/engine/electron.ts, src/main.ts).
+- **F7** fixed (15 Oct 2026): permission questions named, and answers were stored for, the asking frame's site, not the tab's. Now both use the tab's site (as Chrome does); notifications from another site's frame are refused.
 - **F8** "Open in another app" can be allowed for schemes abused on Windows (ms-msdt, search-ms, ms-officecmd, …).
 - **F9** Downloads keep right-to-left characters in names, and a page can start many downloads without a click (src/downloads.ts).
 - **F10** No Content Security Policy on Firn's UI (index.html).

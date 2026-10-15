@@ -274,6 +274,46 @@ const check = (n, ok, x = '') => {
       answered[1] === 'granted',
     JSON.stringify({ prompt: await prompt(), answered }),
   );
+
+  // A frame from another site (localhost inside 127.0.0.1) asking: the
+  // question names the tab's site, and the answer is kept for it (F7).
+  await open('127.0.0.1:8765/perm-frame.html');
+  const top = app.windows().find((w) => w.url().includes('perm-frame.html'));
+  const frame = top.frames().find((f) => f.url().includes('localhost'));
+  const frameResult = async () => {
+    const r = await frame.evaluate(() => window.result ?? null);
+    await frame.evaluate(() => {
+      window.result = null;
+    });
+    return r;
+  };
+  await frame.click('#cam');
+  await wait(800);
+  check(
+    "a frame from another site asking: the prompt names the tab's site",
+    (await prompt()) ===
+      '127.0.0.1:8765 wants to use your camera and microphone',
+    await prompt(),
+  );
+  await fl.click('.permission-button.is-allow');
+  await wait(800);
+  check('...Allow: the frame gets it', (await frameResult()) === 'cam:ok');
+  await wait(800);
+  const sites = JSON.parse(
+    fs.readFileSync('/root/.config/Firn/permissions.json', 'utf8'),
+  ).sites;
+  check(
+    "...and the answer is kept for the tab's site, not the frame's",
+    sites['http://127.0.0.1:8765']?.camera === 'allow' &&
+      !sites['http://localhost:8765'],
+    JSON.stringify(sites),
+  );
+  await frame.click('#notify');
+  await wait(600);
+  check(
+    "notifications from another site's frame: refused, no prompt",
+    (await frameResult()) === 'notify:denied' && (await prompt()) === null,
+  );
   console.log(
     `\n${results.filter(Boolean).length}/${results.length} checks passed`,
   );
