@@ -58,7 +58,7 @@ Each one: what could go wrong, and whether Firn handles it.
 - **Dependencies, and why each is there:**
   - Runtime:
     - `@ghostery/adblocker`: ad and tracker blocking (pinned exact).
-    - `react` and `react-dom`: Firn's own interface (version ranges, not exact; low, pin them, F14).
+    - `react` and `react-dom`: Firn's own interface (pinned exact, F14).
   - `npm audit --omit=dev`: 0 (14 Oct 2026).
   - Build and dev only (never shipped as code):
     - Electron and Electron Forge with its makers and plugins: builds and packages Firn.
@@ -102,4 +102,4 @@ Low:
 - **F11** fixed (15 Oct 2026): the Ctrl+Shift+D diagnostics printed page addresses. Now a page shows only as its number (`printDiagnostics`, src/main.ts).
 - **F12** fixed (15 Oct 2026): Actions were pinned to major tags, and the build's two downloads weren't checked. Now every Action is pinned to its full commit, the signing add-on to NuGet's SHA-512, and Apple's certificate must be signed by Apple's root (.github/workflows/build.yml).
 - **F13** fixed (17 Oct 2026): saved passwords could be shown or copied in Settings without proving it's you. Now Show and Copy ask Touch ID (Mac) or Windows Hello (Windows) first, a yes holding a minute or until the sheet closes (`src/osauth.ts`); where the computer has neither, passwords aren't shown or copied at all (they still fill in on their sites).
-- **F14** `react` and `react-dom` aren't pinned exactly.
+- **F14** fixed (17 Oct 2026): `react` and `react-dom` were version ranges, so a fresh install could pick up a newer, untested release. Now both are pinned exactly (19.3.0), like the other runtime dependency (`package.json`).
