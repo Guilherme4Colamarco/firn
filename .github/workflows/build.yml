@@ -58,8 +58,8 @@ jobs:
     name: Lint and typecheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
           cache: npm
@@ -92,8 +92,8 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
           cache: npm
@@ -135,6 +135,16 @@ jobs:
           rm "$RUNNER_TEMP/certificate.p12"
           curl -fsSL -o "$RUNNER_TEMP/DeveloperIDG2CA.cer" \
             https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
+          # Only Apple's real one (security F12): it must be the Developer ID
+          # G2 authority and signed by Apple's root, taken from the Mac's own
+          # built-in roots, so a swapped file can't get into the keychain.
+          openssl x509 -inform der -in "$RUNNER_TEMP/DeveloperIDG2CA.cer" -out "$RUNNER_TEMP/DeveloperIDG2CA.pem"
+          security find-certificate -a -c "Apple Root CA" -p \
+            /System/Library/Keychains/SystemRootCertificates.keychain > "$RUNNER_TEMP/apple-roots.pem"
+          subject="$(openssl x509 -in "$RUNNER_TEMP/DeveloperIDG2CA.pem" -noout -subject)"
+          case "$subject" in *'Developer ID Certification Authority'*'G2'*) ;; *) false ;; esac &&
+            openssl verify -CAfile "$RUNNER_TEMP/apple-roots.pem" "$RUNNER_TEMP/DeveloperIDG2CA.pem" > /dev/null ||
+            { echo "::error::Apple's Developer ID certificate didn't check out (not signed by Apple's root)."; exit 1; }
           security import "$RUNNER_TEMP/DeveloperIDG2CA.cer" -k "$keychain"
           security set-key-partition-list -S apple-tool:,apple: -s \
             -k "$keychain_password" "$keychain" > /dev/null
@@ -164,7 +174,7 @@ jobs:
           echo "sign=yes" >> "$GITHUB_OUTPUT"
       - name: Sign in to Azure
         if: steps.windows-signing.outputs.sign == 'yes'
-        uses: azure/login@v3
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -178,6 +188,12 @@ jobs:
           New-Item -ItemType Directory -Force $dir | Out-Null
           $zip = Join-Path $dir 'client.zip'
           Invoke-WebRequest -Uri 'https://www.nuget.org/api/v2/package/Microsoft.ArtifactSigning.Client/1.0.128' -OutFile $zip
+          # Only exactly that package (security F12): NuGet's own SHA-512 for
+          # it, from its catalog. A new version needs its new hash here.
+          $expected = '98F06A691F4FC2FA22F19DCF8556733E98607FBEF91A312C453B9B0798CC9088DAE0ACB36E389B552A11B4D2320324785B8541C2B51091A724C05BC5DF5CBF95'
+          if ((Get-FileHash $zip -Algorithm SHA512).Hash -ne $expected) {
+            throw 'The signing package is not the one Firn expects (its checksum differs).'
+          }
           Expand-Archive $zip -DestinationPath (Join-Path $dir 'client') -Force
           $dlib = Get-ChildItem $dir -Recurse -Filter 'Azure.CodeSigning.Dlib.dll' |
             Where-Object { $_.Directory.Name -eq 'x64' } | Select-Object -First 1
@@ -248,7 +264,7 @@ jobs:
             { echo "::error::Firn.app has no Assets.car (the Liquid Glass icon)"; exit 1; }
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$app/Contents/Info.plist"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$app/Contents/Info.plist"
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Firn for ${{ matrix.name }}
           path: |
@@ -272,7 +288,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           path: dist
           merge-multiple: true

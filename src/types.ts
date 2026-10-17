@@ -467,7 +467,13 @@ export interface FirnBridge {
   // The welcome is done: start Basecamp with these sites (from
   // BASECAMP_SUGGESTIONS in src/welcome.ts).
   finishWelcome(basecampUrls: string[]): void;
-  listPasswords(): Promise<{ logins: SavedLogin[]; canSave: boolean }>;
+  // canShow: the computer can check it's its owner (Touch ID, Windows
+  // Hello); without it, passwords are never shown or copied.
+  listPasswords(): Promise<{
+    logins: SavedLogin[];
+    canSave: boolean;
+    canShow: boolean;
+  }>;
   revealPassword(id: string): Promise<string | null>;
   copyPassword(id: string): void;
   deletePassword(id: string): void;

@@ -69,7 +69,7 @@ Files save to your Downloads folder and show at the bottom of the sidebar, with 
 - **No telemetry.** Firn doesn't track you or report how you use it. Your tabs, history, passwords, and settings stay on your computer.
 - **Ads and trackers are blocked** by default, with Ghostery's open-source blocker and the public EasyList, EasyPrivacy, and uBlock Origin lists. If a site breaks, right-click the page and choose **Allow ads on this site**.
 - **Scam and malware warnings** use Google Safe Browsing, checked on your computer: Firn downloads Google's lists, which hold only the first few bytes of a code made from each dangerous address. Only when one matches, which is rare, does Firn ask Google about those few bytes, never the address.
-- **Saved passwords** are encrypted with your computer's own protection, or not saved at all if it has none. They fill in only when you click into a sign-in form, only on the very same site, and only over a secure connection.
+- **Saved passwords** are encrypted with your computer's own protection, or not saved at all if it has none. They fill in only when you click into a sign-in form, only on the very same site, and only over a secure connection. Settings shows or copies one only after Touch ID (Mac) or Windows Hello (Windows) checks it's you.
 - **Site permissions:** a site must ask before using your camera, microphone, location, notifications, or clipboard, and Firn remembers your answer. The button at the left of the address bar changes it.
 - **What Firn sends, and to whom:** the update check (to update.electronjs.org: only Firn's version and the kind of computer), the daily block lists (downloaded from Ghostery's public GitHub), and Safe Browsing's lists (from Google, as above). Nothing about you or what you browse.
 

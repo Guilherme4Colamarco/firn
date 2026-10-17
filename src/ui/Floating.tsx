@@ -2015,12 +2015,23 @@ function SavePasswordPrompt({
   );
 }
 
+// Why Show and Copy are missing when the computer can't check it's you.
+const NO_OWNER_CHECK =
+  window.firn.platform === 'win32'
+    ? 'To see or copy a password here, set up Windows Hello (a PIN, fingerprint, or face) in Windows Settings. Your passwords still fill in on their sites.'
+    : window.firn.platform === 'darwin'
+      ? "Firn shows passwords here only after Touch ID, which isn't available on this Mac right now. Your passwords still fill in on their sites."
+      : "Firn can't check it's you on this computer, so it doesn't show passwords here. They still fill in on their sites.";
+
 // Saved passwords (Settings, the Firn menu, or the command bar): sites and
-// usernames, with the passwords hidden until you choose to see one.
+// usernames, with the passwords hidden until you choose to see one (and the
+// computer has checked it's you: Touch ID or Windows Hello, src/osauth.ts).
 function PasswordsPanel() {
   const [query, setQuery] = useState('');
   const [logins, setLogins] = useState<SavedLogin[]>([]);
   const [canSave, setCanSave] = useState(true);
+  // Unknown (null) until the main process says; Show and Copy wait for it.
+  const [canShow, setCanShow] = useState<boolean | null>(null);
   const [shown, setShown] = useState<Record<string, string>>({});
   const [version, setVersion] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -2035,6 +2046,7 @@ function PasswordsPanel() {
       if (!current) return;
       setLogins(result.logins);
       setCanSave(result.canSave);
+      setCanShow(result.canShow);
     });
     return () => {
       current = false;
@@ -2097,6 +2109,9 @@ function PasswordsPanel() {
               doesn't save them here.
             </p>
           )}
+          {canSave && canShow === false && logins.length > 0 && (
+            <p className="sheet-note">{NO_OWNER_CHECK}</p>
+          )}
           {canSave && visible.length === 0 && (
             <p className="sheet-empty">
               {query.trim()
@@ -2115,20 +2130,24 @@ function PasswordsPanel() {
               <span className="password-secret">
                 {shown[login.id] ?? '••••••••'}
               </span>
-              <button
-                className="icon-button"
-                title={shown[login.id] !== undefined ? 'Hide' : 'Show'}
-                onClick={() => toggle(login.id)}
-              >
-                <EyeIcon />
-              </button>
-              <button
-                className="icon-button"
-                title="Copy password"
-                onClick={() => window.firn.copyPassword(login.id)}
-              >
-                <CopyIcon />
-              </button>
+              {canShow && (
+                <>
+                  <button
+                    className="icon-button"
+                    title={shown[login.id] !== undefined ? 'Hide' : 'Show'}
+                    onClick={() => toggle(login.id)}
+                  >
+                    <EyeIcon />
+                  </button>
+                  <button
+                    className="icon-button"
+                    title="Copy password"
+                    onClick={() => window.firn.copyPassword(login.id)}
+                  >
+                    <CopyIcon />
+                  </button>
+                </>
+              )}
               <button
                 className="icon-button"
                 title="Delete"

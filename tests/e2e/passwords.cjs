@@ -230,9 +230,43 @@ const check = (n, ok, x = '') => {
     stored().length === 1,
     String(stored().length),
   );
-  // panel
-  await ui.evaluate(() => window.firn.runAction('passwords'));
-  await wait(600);
+  // panel. The computer's "is it you?" check (src/osauth.ts) is answered
+  // by the test: first a computer without one.
+  const owner = (answer) =>
+    app.evaluate((_e, a) => {
+      globalThis.__firnOwnerAnswer = a;
+    }, answer);
+  const asks = () => app.evaluate(() => globalThis.__firnOwnerAsks ?? 0);
+  const openPanel = async () => {
+    await ui.evaluate(() => window.firn.runAction('passwords'));
+    await wait(600);
+  };
+  await owner('unavailable');
+  await openPanel();
+  check(
+    'without a check on this computer: no Show or Copy, and a note says why',
+    (await fl.evaluate(
+      () =>
+        !document.querySelector('.password-row button[data-tip="Show"]') &&
+        !document.querySelector(
+          '.password-row button[data-tip="Copy password"]',
+        ) &&
+        /still fill in/.test(
+          document.querySelector('.sheet-note')?.textContent ?? '',
+        ),
+    )) === true,
+  );
+  check(
+    '…and the bridge refuses too',
+    (await fl.evaluate(async () => {
+      const id = (await window.firn.listPasswords()).logins[0].id;
+      return window.firn.revealPassword(id);
+    })) === null,
+  );
+  await fl.keyboard.press('Escape');
+  await wait(300);
+  await owner('no');
+  await openPanel();
   const rows = await fl.evaluate(() =>
     [...document.querySelectorAll('.password-row')].map((r) => [
       r.querySelector('.password-site').textContent,
@@ -251,11 +285,27 @@ const check = (n, ok, x = '') => {
   execSync(
     `import -window root -crop ${o.width}x${o.height}+${o.x}+${o.y} ${SP}/pw-panel.png`,
   );
+  await app.evaluate(({ clipboard }) => clipboard.writeText('before'));
   await fl.locator('.password-row').hover();
   await fl.click('.password-row button[data-tip="Show"]');
   await wait(300);
+  await fl.click('.password-row button[data-tip="Copy password"]');
+  await wait(300);
   check(
-    'Show reveals the (updated) password',
+    'cancelling the check: nothing shown or copied',
+    (await fl.evaluate(
+      () => document.querySelector('.password-secret').textContent,
+    )) === '••••••••' &&
+      (await app.evaluate(({ clipboard }) => clipboard.readText())) ===
+        'before' &&
+      (await asks()) === 2,
+    String(await asks()),
+  );
+  await owner('yes');
+  await fl.click('.password-row button[data-tip="Show"]');
+  await wait(300);
+  check(
+    'Show (after the check) reveals the (updated) password',
     (await fl.evaluate(
       () => document.querySelector('.password-secret').textContent,
     )) === 'new-secret-456',
@@ -263,10 +313,36 @@ const check = (n, ok, x = '') => {
   await fl.click('.password-row button[data-tip="Copy password"]');
   await wait(300);
   check(
-    'Copy puts it on the clipboard',
+    'Copy puts it on the clipboard, without asking again',
     (await app.evaluate(({ clipboard }) => clipboard.readText())) ===
-      'new-secret-456',
+      'new-secret-456' && (await asks()) === 3,
+    String(await asks()),
   );
+  await fl.keyboard.press('Escape');
+  await wait(300);
+  await openPanel();
+  await fl.locator('.password-row').hover();
+  await fl.click('.password-row button[data-tip="Show"]');
+  await wait(300);
+  check(
+    'closing the sheet locks it: reopened, Show asks again',
+    (await asks()) === 4,
+    String(await asks()),
+  );
+  check(
+    'the bridge refuses while the sheet is closed',
+    (await (async () => {
+      await fl.keyboard.press('Escape');
+      await wait(300);
+      const r = await fl.evaluate(async () => {
+        const id = (await window.firn.listPasswords()).logins[0].id;
+        return window.firn.revealPassword(id);
+      });
+      await openPanel();
+      return r;
+    })()) === null,
+  );
+  await fl.locator('.password-row').hover();
   await fl.click('.password-row button[data-tip="Delete"]');
   await wait(800);
   check(
