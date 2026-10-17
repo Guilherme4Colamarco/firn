@@ -101,5 +101,5 @@ Low:
 - **F10** fixed (15 Oct 2026): Firn's UI had no Content Security Policy. Now the built UI is sent with a strict one: only its own scripts, styles, and fonts, so nothing injected into the UI can run.
 - **F11** fixed (15 Oct 2026): the Ctrl+Shift+D diagnostics printed page addresses. Now a page shows only as its number (`printDiagnostics`, src/main.ts).
 - **F12** fixed (15 Oct 2026): Actions were pinned to major tags, and the build's two downloads weren't checked. Now every Action is pinned to its full commit, the signing add-on to NuGet's SHA-512, and Apple's certificate must be signed by Apple's root (.github/workflows/build.yml).
-- **F13** Saved passwords can be shown in Settings without the computer's password.
+- **F13** fixed (17 Oct 2026): saved passwords could be shown or copied in Settings without proving it's you. Now Show and Copy ask Touch ID (Mac) or Windows Hello (Windows) first, a yes holding a minute or until the sheet closes (`src/osauth.ts`); where the computer has neither, passwords aren't shown or copied at all (they still fill in on their sites).
 - **F14** `react` and `react-dom` aren't pinned exactly.

@@ -31,6 +31,7 @@ import type { Page, PageContextMenu, Referrer } from './engine/engine';
 import { ElectronEngine } from './engine/electron';
 import { Downloads } from './downloads';
 import { PasswordStore } from './passwords';
+import { OwnerGate } from './osauth';
 import { AdBlocker } from './adblock';
 import {
   askToBeDefault,
@@ -975,6 +976,8 @@ const createWindow = () => {
       shownLogin = null;
     if (overlay.mode === 'danger' && state.mode !== 'danger')
       shownDanger = null;
+    if (overlay.mode === 'passwords' && state.mode !== 'passwords')
+      ownerGate.lock();
     // A panel replaces the top bar's hover label (and a split view's
     // handle).
     if (barTip) {
@@ -1004,6 +1007,7 @@ const createWindow = () => {
     // makes sense right after signing in).
     if (overlay.mode === 'password') shownLogin = null;
     if (overlay.mode === 'danger') shownDanger = null;
+    if (overlay.mode === 'passwords') ownerGate.lock();
     const wasPermission =
       overlay.mode === 'permission' || overlay.mode === 'password';
     if (wasPermission && shownPermission) {
@@ -1331,6 +1335,16 @@ const createWindow = () => {
     hideOverlay();
     send('passwords:changed');
   };
+
+  // Showing or copying a password asks the computer's owner first
+  // (src/osauth.ts); the answer holds while the sheet stays open.
+  const ownerGate = new OwnerGate(
+    process.env.FIRN_INSECURE_TEST_PASSWORDS === '1',
+  );
+  const revealChecked = async (id: string) =>
+    passwords.list().some((l) => l.id === id) && (await ownerGate.confirm())
+      ? passwords.reveal(id)
+      : null;
 
   const openPasswords = () => {
     showOverlay({ mode: 'passwords', openId: ++commandOpenId });
@@ -3253,9 +3267,11 @@ const createWindow = () => {
     'password:answer': (_sender, answer) => {
       if (answer === 'save' || answer === 'dismiss') answerLogin(answer);
     },
-    'passwords:copy': (_sender, id) => {
-      const password = typeof id === 'string' ? passwords.reveal(id) : null;
-      if (password !== null) void clipboard.writeText(password);
+    'passwords:copy': async (_sender, id) => {
+      if (typeof id !== 'string' || overlay.mode !== 'passwords') return;
+      const password = await revealChecked(id);
+      if (password !== null && overlay.mode === 'passwords')
+        clipboard.writeText(password);
     },
     'passwords:delete': async (_sender, id) => {
       if (typeof id !== 'string') return;
@@ -3546,15 +3562,25 @@ const createWindow = () => {
         ? history.search(query.slice(0, 200), 6)
         : [],
   );
-  ipcMain.handle('passwords:list', (event: IpcMainInvokeEvent) =>
+  ipcMain.handle('passwords:list', async (event: IpcMainInvokeEvent) =>
     uiContents.includes(event.sender)
-      ? { logins: passwords.list(), canSave: passwords.canSave }
-      : { logins: [], canSave: false },
+      ? {
+          logins: passwords.list(),
+          canSave: passwords.canSave,
+          canShow: await ownerGate.canCheck(),
+        }
+      : { logins: [], canSave: false, canShow: false },
   );
-  ipcMain.handle('passwords:reveal', (event: IpcMainInvokeEvent, id: unknown) =>
-    uiContents.includes(event.sender) && typeof id === 'string'
-      ? passwords.reveal(id)
-      : null,
+  ipcMain.handle(
+    'passwords:reveal',
+    async (event: IpcMainInvokeEvent, id: unknown) => {
+      if (!uiContents.includes(event.sender) || typeof id !== 'string')
+        return null;
+      if (overlay.mode !== 'passwords') return null;
+      const password = await revealChecked(id);
+      // The sheet may have closed while the question was up.
+      return overlay.mode === 'passwords' ? password : null;
+    },
   );
   ipcMain.handle('archive:list', (event: IpcMainInvokeEvent) =>
     uiContents.includes(event.sender) ? tabs.archive : [],
