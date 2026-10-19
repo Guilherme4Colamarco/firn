@@ -1,5 +1,20 @@
 # What's new in Firn
 
+## Firn 0.10.3
+
+**Your saved passwords now check it's you.**
+
+Showing or copying a saved password in Settings now asks for Touch ID on a Mac or Windows Hello on Windows first. Once you say yes, it stays open for a minute, or until you close the sheet.
+
+### Better
+
+- **Saved passwords** can be shown or copied only after you prove it's you, so someone at an unlocked computer can't read them. Passwords still fill in on their own sites as before.
+- **Under the hood**, Firn's own building blocks are pinned to exact, checked versions, so every update is built from exactly what was tested.
+
+### Fixed
+
+- **On a computer with no Touch ID or Windows Hello**, saved passwords are no longer shown or copied at all. They still fill in on their sites.
+
 ## Firn 0.10.2
 
 **A quieter, more careful Firn.**
