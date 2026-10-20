@@ -1819,6 +1819,15 @@ const createWindow = () => {
       !adsAllowedOn(pageUrl) &&
       adBlocker.shouldBlock(url, type, pageUrl),
   );
+  // Google's sign-in page turns away browsers it thinks are built into an
+  // app ("This browser or app may not be secure"), and it can tell Firn is
+  // built on Electron even under Chrome's name. Introduced as Firefox there,
+  // and only there, it lets people sign in, as Min does (testers couldn't
+  // sign in otherwise; David's call, Oct 2026).
+  engine.setUserAgentFor(
+    [process.env.FIRN_GOOGLE_SIGN_IN_TEST ?? 'https://accounts.google.com/*'],
+    firefoxUserAgent(),
+  );
   // A site asking for the camera and so on: answered from what was decided
   // before, or asked (see "Site permissions" above).
   engine.onPermissionRequest(
@@ -4031,6 +4040,21 @@ app.userAgentFallback = app.userAgentFallback
   .replace(/ Firn\/\S+/i, '')
   .replace(/ Electron\/\S+/, '')
   .replace(/Chrome\/(\d+)[\d.]*/, 'Chrome/$1.0.0.0');
+
+// Firefox's name on this system, for Google's sign-in page (see
+// setUserAgentFor). Its version follows Chrome's (Firefox has been about
+// three ahead since both moved to a release every four weeks), so it stays
+// current as Electron updates.
+function firefoxUserAgent() {
+  const version = Number(process.versions.chrome.split('.')[0]) + 3;
+  const system =
+    process.platform === 'win32'
+      ? 'Windows NT 10.0; Win64; x64'
+      : process.platform === 'darwin'
+        ? 'Macintosh; Intel Mac OS X 10.15'
+        : 'X11; Linux x86_64';
+  return `Mozilla/5.0 (${system}; rv:${version}.0) Gecko/20100101 Firefox/${version}.0`;
+}
 
 // Only one Firn runs at a time. Opening it again brings the existing window
 // forward instead, so two copies can never overwrite each other's session.
