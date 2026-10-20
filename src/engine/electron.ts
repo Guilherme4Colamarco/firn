@@ -554,6 +554,22 @@ export class ElectronEngine implements PageEngine {
     this.requestBlocker = shouldBlock;
   }
 
+  setUserAgentFor(urls: string[], userAgent: string) {
+    const session = sessions.defaultSession;
+    session.webRequest.onBeforeSendHeaders({ urls }, (details, callback) => {
+      const headers: Record<string, string> = {
+        ...details.requestHeaders,
+        'User-Agent': userAgent,
+      };
+      // Chromium's hints name the real browser ("Chromium", its version):
+      // the browser named above doesn't send them.
+      for (const name of Object.keys(headers))
+        if (/^sec-ch-ua/i.test(name)) delete headers[name];
+      callback({ requestHeaders: headers });
+    });
+    this.win.on('closed', () => session.webRequest.onBeforeSendHeaders(null));
+  }
+
   // The window's own web contents and its child views that aren't pages.
   private isOwnUi(web: WebContents) {
     if (web === this.win.webContents) return true;

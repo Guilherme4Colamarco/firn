@@ -1,5 +1,19 @@
 # What's new in Firn
 
+## Firn 0.10.4
+
+**Signing in to Google works in Firn.**
+
+Some people saw "This browser or app may not be secure" when signing in to Google. Firn now signs in like any other browser, in a tab or through a "Sign in with Google" button.
+
+### Better
+
+- **The empty space under your tabs** now moves the window on Windows, like a title bar. Right-clicking there still opens the space's menu. Thanks to whzmsa, Firn's first contributor!
+
+### Fixed
+
+- **Google sign-in** no longer turns Firn away.
+
 ## Firn 0.10.3
 
 **Your saved passwords now check it's you.**

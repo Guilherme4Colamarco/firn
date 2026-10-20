@@ -213,6 +213,11 @@ export interface PageEngine {
   setRequestBlocker(
     shouldBlock: (url: string, type: string, pageUrl: string) => boolean,
   ): void;
+  // Requests to these addresses (match patterns, like
+  // "https://example.com/*") are sent with this browser name instead of
+  // the usual one, and without Chromium's "which browser" hints. For
+  // Google's sign-in page (see main.ts).
+  setUserAgentFor(urls: string[], userAgent: string): void;
   // Every download starts here; `download` starts one from a URL.
   onDownload(listener: (download: EngineDownload) => void): void;
   download(url: string): void;
