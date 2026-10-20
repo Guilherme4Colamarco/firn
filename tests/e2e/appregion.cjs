@@ -57,13 +57,71 @@ const check = (n, ok, x = '') => {
     own,
   );
   const pane = await region(ui, '.space-pane');
-  check('the empty space under the tabs moves the window', pane === 'drag', pane);
+  check(
+    'the empty space under the tabs moves the window',
+    pane === 'drag',
+    pane,
+  );
   const content = await region(ui, '.space-pane .space-content');
-  check('...but not the tabs and the space name', content === 'no-drag', content);
+  check(
+    '...but not the tabs and the space name',
+    content === 'no-drag',
+    content,
+  );
   const tab = await region(ui, '.space-tabs .tab[data-kind="everyday"]');
   check('...nor a tab row', tab === 'no-drag', tab);
   const newTab = await region(ui, '.space-tabs .new-tab');
   check('...nor New tab', newTab === 'no-drag', newTab);
+
+  // On Windows a right-click there goes to Windows' window menu instead of
+  // the page; Firn shows the sidebar's menu in its place (pretended here:
+  // Windows' event, with the mouse at a spot in the window).
+  const rightClick = (x, y) =>
+    app.evaluate(
+      ({ BrowserWindow, Menu, screen }, { x, y }) => {
+        const win = BrowserWindow.getAllWindows().find(
+          (w) => w.listenerCount('system-context-menu') > 0,
+        );
+        const content = win.getContentBounds();
+        const realCursor = screen.getCursorScreenPoint;
+        const realBuild = Menu.buildFromTemplate;
+        screen.getCursorScreenPoint = () => ({
+          x: content.x + x,
+          y: content.y + y,
+        });
+        let labels = null;
+        Menu.buildFromTemplate = (t) => {
+          labels = t.map((i) => i.label).filter(Boolean);
+          return { popup() {} };
+        };
+        let prevented = false;
+        win.emit(
+          'system-context-menu',
+          { preventDefault: () => (prevented = true) },
+          { x: content.x + x, y: content.y + y },
+        );
+        screen.getCursorScreenPoint = realCursor;
+        Menu.buildFromTemplate = realBuild;
+        return { prevented, labels };
+      },
+      { x, y },
+    );
+  const sidebarBox = await ui.evaluate(() => {
+    const r = document.querySelector('.space-pane').getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.bottom - 20, right: r.right };
+  });
+  const under = await rightClick(sidebarBox.x, sidebarBox.y);
+  check(
+    "a right-click under the tabs shows the sidebar's menu, not Windows'",
+    under.prevented && !!under.labels?.includes('New space'),
+    JSON.stringify(under),
+  );
+  const onPage = await rightClick(sidebarBox.right + 200, 20);
+  check(
+    "...and the top bar keeps Windows' menu",
+    !onPage.prevented && onPage.labels === null,
+    JSON.stringify(onPage),
+  );
 
   console.log(
     `\n${results.filter(Boolean).length}/${results.length} checks passed`,

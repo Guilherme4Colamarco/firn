@@ -2791,6 +2791,20 @@ const createWindow = () => {
     ]).popup({ window: win });
   };
 
+  // On Windows, a right-click on a part of the sidebar that moves the
+  // window (its top row, the empty space under the tabs) never reaches the
+  // sidebar: Windows shows its own window menu (Restore, Move, Size…)
+  // instead. There, show the sidebar's menu, as on other systems. The top
+  // bar keeps Windows' menu, as a title bar does.
+  win.on('system-context-menu', (event) => {
+    if (windowState.sidebarCollapsed) return;
+    const { x, y } = cursorInWindow();
+    const below = addressOnTop() ? TOP_ADDRESS_HEIGHT : 0;
+    if (x < 0 || x >= windowState.sidebarWidth || y < below) return;
+    event.preventDefault();
+    showSidebarMenu(win.webContents);
+  });
+
   const showSpaceMenu = (id: string, target: WebContents) => {
     const space = spaces.find((s) => s.id === id);
     if (!space) return;

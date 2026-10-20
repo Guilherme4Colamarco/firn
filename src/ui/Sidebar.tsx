@@ -206,12 +206,14 @@ export function Sidebar({
         tabs={tabs.tabs.filter((t) => t.basecamp)}
         activeTabId={tabs.activeTabId}
       />
-      
+
       <div className="space-pane">
         <div
           key={spaces.activeSpaceId}
           className="space-content"
-          style={{ '--space-from': `${direction * 8}px` } as React.CSSProperties}
+          style={
+            { '--space-from': `${direction * 8}px` } as React.CSSProperties
+          }
         >
           <SpaceHeader
             space={space}
