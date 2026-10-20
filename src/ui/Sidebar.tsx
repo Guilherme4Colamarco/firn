@@ -206,23 +206,25 @@ export function Sidebar({
         tabs={tabs.tabs.filter((t) => t.basecamp)}
         activeTabId={tabs.activeTabId}
       />
+      
+      <div className="space-pane">
+        <div
+          key={spaces.activeSpaceId}
+          className="space-content"
+          style={{ '--space-from': `${direction * 8}px` } as React.CSSProperties}
+        >
+          <SpaceHeader
+            space={space}
+            renaming={!!space && renamingId === space.id}
+            onDoneRenaming={() => setRenamingId(null)}
+          />
 
-      <div
-        key={spaces.activeSpaceId}
-        className="space-content"
-        style={{ '--space-from': `${direction * 8}px` } as React.CSSProperties}
-      >
-        <SpaceHeader
-          space={space}
-          renaming={!!space && renamingId === space.id}
-          onDoneRenaming={() => setRenamingId(null)}
-        />
-
-        <SpaceTabs
-          tabs={tabs.tabs.filter((t) => !t.basecamp)}
-          activeTabId={tabs.activeTabId}
-          folded={!!space?.pinsFolded}
-        />
+          <SpaceTabs
+            tabs={tabs.tabs.filter((t) => !t.basecamp)}
+            activeTabId={tabs.activeTabId}
+            folded={!!space?.pinsFolded}
+          />
+        </div>
       </div>
 
       <DownloadsShelf downloads={downloads} />

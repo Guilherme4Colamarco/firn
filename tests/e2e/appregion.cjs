@@ -56,6 +56,14 @@ const check = (n, ok, x = '') => {
     own === 'drag',
     own,
   );
+  const pane = await region(ui, '.space-pane');
+  check('the empty space under the tabs moves the window', pane === 'drag', pane);
+  const content = await region(ui, '.space-pane .space-content');
+  check('...but not the tabs and the space name', content === 'no-drag', content);
+  const tab = await region(ui, '.space-tabs .tab[data-kind="everyday"]');
+  check('...nor a tab row', tab === 'no-drag', tab);
+  const newTab = await region(ui, '.space-tabs .new-tab');
+  check('...nor New tab', newTab === 'no-drag', newTab);
 
   console.log(
     `\n${results.filter(Boolean).length}/${results.length} checks passed`,
