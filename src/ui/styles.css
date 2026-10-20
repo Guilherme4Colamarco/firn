@@ -157,14 +157,17 @@ body,
    On Windows, Electron asks every *visible* layer whether a spot is title
    bar, in the order the layers were created (not the order they're
    stacked), and a layer's drag areas count even outside its own edges. So
-   drag areas are kept to exactly two places:
-   - the main window's sidebar top row, and
+   drag areas are kept to a few places:
+   - the main window's sidebar top row,
+   - the main window's empty space under the tab list (the pane behind it;
+     the list itself slides and scrolls, and a drag region there is ignored), and
    - the top bar layer's empty band, which only counts while the bar is
      showing (hidden layers are skipped).
    On macOS, which has no such trouble, the thin frame strip along the
    window's top edge moves it too (instead of the top bar sliding down).
    No other layer declares any drag setting at all. */
 :root[data-view='main'] .sidebar-top,
+:root[data-view='main'] .space-pane,
 :root[data-view='topbar'] .top-bar-drag,
 :root[data-view='main'][data-platform='darwin'] .window-grip {
   -webkit-app-region: drag;
@@ -179,6 +182,10 @@ body,
 }
 
 :root[data-view='main'] .sidebar-top .icon-button,
+:root[data-view='main'] .space-pane .space-content,
+:root[data-view='main'] .space-tabs .tab,
+:root[data-view='main'] .space-tabs .new-tab,
+:root[data-view='main'] .space-tabs .space-divider,
 :root[data-view='topbar'] .top-bar .icon-button {
   -webkit-app-region: no-drag;
 }
@@ -496,14 +503,28 @@ button {
 
 /* --- Spaces --------------------------------------------------------------- */
 
+/* The open stretch under the tabs. It fills whatever room the list doesn't
+   use, and (in the main window) that stretch moves the window. The list
+   sits in front of it and only grows as tall as its tabs, until there are
+   enough to scroll. */
+.space-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Everything that belongs to the active space: its name, pins and tabs.
-   Switching spaces slides it in gently from the side the space is on. */
+   Switching spaces slides it in gently from the side the space is on.
+   It doesn't grow past its contents, so the pane's empty space stays
+   reachable underneath. */
 .space-content {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
+  max-height: 100%;
   animation: space-in var(--motion) both;
 }
 
@@ -518,6 +539,7 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
   height: 32px;
   margin-top: 12px;
   padding: 0 6px 0 12px;
@@ -1363,7 +1385,10 @@ button {
   flex-direction: column;
   gap: 4px;
   min-height: 0;
-  flex: 1;
+  /* Content height when there's room; shrinks and scrolls when there isn't.
+     flex-basis 0 (from `flex: 1`) would collapse the list, because the
+     pane — not this list — takes the spare room. */
+  flex: 1 1 auto;
   overflow-x: hidden;
   overflow-y: auto;
   /* Room so the active tab's soft shadow isn't clipped. */
